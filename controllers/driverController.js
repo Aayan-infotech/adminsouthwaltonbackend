@@ -1,0 +1,240 @@
+const Driver  = require('../models/driverModel');
+require('dotenv').config();
+const jwt = require('jsonwebtoken');
+const Role = require('../models/roleModel');
+const createError = require('../middleware/error');
+const createSuccess = require('../middleware/success');
+const path = require('path');
+const fs = require('fs');
+
+// To create Driver
+const createDriver = async (req, res, next) => {
+    try {
+        const role = await Role.findOne({ role: 'Driver' });
+        if (!role) {
+            return next(createError(400, "Role not found"));
+        }
+        const { name, mobileNumber, email, password, address } = req.body;
+
+        // Check individual required fields
+        if (!name) {
+            return next(createError(400, "Name is required"));
+        }
+        if (!email) {
+            return next(createError(400, "Email is required"));
+        }
+        if (!password) {
+            return next(createError(400, "Password is required"));
+        }
+
+        // Check if email already exists
+        const existingUser = await Driver.findOne({ email });
+        if (existingUser) {
+            return next(createError(400, "Email already exists"));
+        }
+
+        // Check if file is uploaded
+        let image = null;
+        if (req.file) {
+            const file = req.file;
+            const filename = Date.now() + path.extname(file.originalname);
+            const filepath = path.join(__dirname, '../uploads', filename);
+            fs.writeFileSync(filepath, file.buffer); // Save the file to the filesystem
+
+            image = {
+                filename,
+                contentType: file.mimetype,
+                url: `${req.protocol}://${req.get('host')}/uploads/${filename}`
+            };
+        }
+        // Create new user with the role assigned
+        const newDriver = new Driver({ name, mobileNumber, email, password, image, address, roles: [role._id] });
+        const savedDriver = await newDriver.save();
+
+        return next(createSuccess(200, "Driver Registered Successfully", savedDriver));
+    }
+    catch (error) {
+        console.error(error);
+        return next(createError(500, "Something went wrong"));
+    }
+};
+
+// Get All Drivers
+const getAllDrivers = async (req, res, next) => {
+    try {
+        const allDrivers = await Driver.find();  // Ensure Driver model is used
+        const driverWithImageURLs = allDrivers.map(driver => {
+            if (driver.image) {
+                // Construct image URL based on driver's image filename
+                const imageURL = `${req.protocol}://${req.get('host')}/api/driver/image/${driver.image.filename}`;
+                return {
+                    ...driver._doc,
+                    image: { ...driver.image._doc, url: imageURL }
+                };
+            } else {
+                return { ...driver._doc, image: null };
+            }
+        });
+        return next(createSuccess(200, "All Drivers", driverWithImageURLs));
+    } catch (error) {
+        console.error(error);
+        return next(createError(500, "Internal Server Error!"));
+    }
+};
+
+// Get Driver By Id
+const getDriverById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const driverById = await Driver.findById(id);
+
+        if (!driverById) {
+            return next(createError(404, "Driver Not Found"));
+        }
+
+        // Check if Driver has an image
+        let driverWithImageURLs = { ...driverById._doc };
+        if (driverById.image) {
+            const imageURL = `${req.protocol}://${req.get('host')}/api/driver/image/${driverById.image.filename}`;
+            driverWithImageURLs.image = { ...driverById.image._doc, url: imageURL };
+        } else {
+            driverWithImageURLs.image = null;
+        }
+
+        return next(createSuccess(200, "Driver found", driverWithImageURLs));
+
+    } catch (error) {
+        console.error(error);  // Log the error for debugging
+        return next(createError(500, "Internal Server Error!"));
+    }
+};
+
+// Update Driver By Id
+const updateDriverById = async (req, res, next) => {
+    try {
+        const updateDriverId = req.params.id;
+        const { name, mobileNumber, email, password, address, roles } = req.body;
+        
+        // Find driver by id
+        const updateDriver = await Driver.findById(updateDriverId);
+        if (!updateDriver) {
+            return next(createError(404, "Driver Not Found"));
+        }
+
+        // Handle file uploads
+        let image = updateDriver.image; // Retain existing images if no new files uploaded
+        if (req.file) {
+            // Delete old image from the file system if it exists
+            if (image) {
+                const oldFilePath = path.join(__dirname, '../uploads', image.filename);
+                if (fs.existsSync(oldFilePath)) {
+                    fs.unlinkSync(oldFilePath);
+                }
+            }
+
+            // Save new file
+            const file = req.file;
+            const filename = Date.now() + path.extname(file.originalname);
+            const filepath = path.join(__dirname, '../uploads', filename);
+
+            fs.writeFileSync(filepath, file.buffer); // Save the file to the filesystem
+
+            image = {
+                filename,
+                contentType: file.mimetype,
+                url: `${req.protocol}://${req.get('host')}/uploads/${filename}`
+            };
+        }
+
+        // Update driver details
+        updateDriver.name = name || updateDriver.name;
+        updateDriver.mobileNumber = mobileNumber || updateDriver.mobileNumber;
+        updateDriver.email = email || updateDriver.email;
+        updateDriver.password = password || updateDriver.password;
+        updateDriver.address = address || updateDriver.address;
+        updateDriver.roles = roles || updateDriver.roles;
+        updateDriver.image = image;
+
+        // Save updated driver
+        const savedDriver = await updateDriver.save();
+        return next(createSuccess(200, "Driver Details Updated Successfully", savedDriver));
+
+    } catch (error) {
+        console.error(error);  // Log the error for debugging
+        return next(createError(500, "Internal Server Error!"));
+    }
+};
+
+// Delete Driver By Id
+const deleteDriver = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const deleteDriver = await Driver.findByIdAndDelete(id);
+        if (!deleteDriver) {
+            return next(createError(404, "Driver Not Found"));
+        }
+        return next(createSuccess(200, "Driver Deleted", deleteDriver));
+    } catch (error) {
+        return next(createError(500, "Internal Server Error!"))
+    }
+};
+
+// images
+const getImage = (req, res) => {
+    const filepath = path.join(__dirname, '../uploads', req.params.filename);
+    fs.readFile(filepath, (err, data) => {
+        if (err) {
+            return res.status(404).json({ message: 'Image not found' });
+        }
+        const image = data;
+        const mimeType = req.params.filename.split('.').pop();
+        res.setHeader('Content-Type', `image/${mimeType}`);
+        res.send(image);
+    });
+};
+
+//login
+const driverLogin = async (req, res, next) => {
+    try {
+        const { email, password } = req.body;
+
+        const driver = await Driver.findOne({ email });
+
+        if (!driver) {
+            return next(createError(404, "Driver Not Found"));
+        }
+
+        const isPasswordValid = await driver.comparePassword(password);
+        if (!isPasswordValid) {
+            return next(createError(400, "Invalid Password"));
+        }
+
+        const token = jwt.sign({ id: driver._id, roles: driver.roles }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+        res.cookie("access_token", token, { httpOnly: true })
+            .status(200)
+            .json({
+                token,
+                status: 200,
+                message: "Login Successful",
+                data: driver
+            });
+    } catch (error) {
+        console.error(error);
+        return next(createError(500, "Internal Server Error"));
+    }
+};
+
+
+// Logout
+const driverLogout = (req, res, next) => {
+    try {
+        res.clearCookie("access_token");
+        res.status(200).json({ message: "Logged out successfully" });
+    } catch (error) {
+        console.error(error);
+        return next(createError(500, "Internal Server Error"));
+    }
+};
+
+module.exports = { createDriver, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout };
