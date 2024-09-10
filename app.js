@@ -35,7 +35,7 @@ const app = express();
 
 // Configure CORS options
 var corsOptions = {
-    origin: FRONTEND,
+    origin: '*',
     optionsSuccessStatus: 200, // For legacy browsers support
     credentials: true // Allow credentials in CORS requests
 };
