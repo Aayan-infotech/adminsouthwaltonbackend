@@ -1,32 +1,24 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const taskSchema = new mongoose.Schema({
-
-  driverName: {
-    type: String,
-    required: true,
-  },
-  customerName: {
-    type: String,
-    required: true,
-  },
-  pickupAddress: {
-    type: String,
-    required: true,
-  },
-  deliveryAddress: {
-    type: String,
-    required: true,
-  },
-  pickupDate: {
-    type: String,
-    required: true,
-  },
- 
-  deliveryDate: {
-    type: String,
-    required: true,
-  },
+const taskSchema = new Schema({
+    booking: {
+        type: Schema.Types.ObjectId,
+        ref: 'Bookform',
+        required: true
+    },
+    driver: {
+        type: Schema.Types.ObjectId,
+        ref: 'Driver',
+        required: true
+    },
+    taskStatus: {
+        type: String,
+        required: true,
+    },
+    // Additional task-specific fields
+}, {
+    timestamps: true
 });
 
 module.exports = mongoose.model('Task', taskSchema);

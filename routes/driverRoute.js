@@ -1,7 +1,7 @@
 const express = require("express");
 const Driver = require('../models/driverModel');
-const { createDriver, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage ,driverLogin, driverLogout} = require('../controllers/driverController');
-const { verifyAdmin, verifyUser } = require('../middleware/verifyToken');
+const { createDriver, assignDriver, getAllDrivers,getDriverBookings, getDriverById, updateDriverById, deleteDriver, getImage ,driverLogin, driverLogout} = require('../controllers/driverController');
+const { verifyAdmin } = require('../middleware/verifyToken');
 const router = express.Router();
 const upload = require('../middleware/upload');
 
@@ -13,8 +13,11 @@ router.delete('/:id', verifyAdmin, deleteDriver);
 router.get('/image/:filename', getImage); 
 // Driver Login
 router.post('/login',verifyAdmin, driverLogin);
+router.put('/assignDriver/:id',assignDriver);
+router.get('/:driverId/bookings', getDriverBookings);
 
 // Driver Logout
 router.post('/logout', driverLogout);
+
 
 module.exports = router;

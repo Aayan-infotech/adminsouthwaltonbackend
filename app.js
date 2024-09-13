@@ -19,10 +19,9 @@ const checkoutRoute = require('./routes/checkoutRoute');
 const vehicleRoute = require('./routes/vehicleRoute');
 const taskRoute = require('./routes/taskRoute');
 const damageRoute = require('./routes/damageRoute');
-const eventsRoute = require('./routes/eventsRoute');
+
 const billingRoute = require('./routes/billingRoute');
-const painRoute = require('./routes/painRoute');
-const heentRoute = require('./routes/heentRoute');
+
 const signRoutes = require('./routes/signRoute');
 const feedbackRoute = require('./routes/feedbackRoute');
 // Retrieve environment variables
@@ -56,10 +55,9 @@ app.use('/api/book', checkoutRoute); // To list bookings
 app.use('/api/vehicle', vehicleRoute);
 app.use('/api/task', taskRoute);
 app.use('/api/damage', damageRoute);
-app.use('/api/events', eventsRoute);
+
 app.use('/api/billing', billingRoute);
-app.use('/api/pain', painRoute);
-app.use('/api/heent', heentRoute);
+
 app.use('/api/sign', signRoutes);
 app.use('/api/feedback', feedbackRoute);
 // Static file serving for image uploads

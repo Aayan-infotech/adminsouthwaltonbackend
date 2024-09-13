@@ -1,32 +1,5 @@
 const mongoose = require('mongoose');
 
-const DriverSchema = new mongoose.Schema({
-    dname: {
-        type: String,
-        required: false,
-    },
-    dphone: {
-        type: Number,
-        required: false,
-    },
-    demail: {
-        type: String,
-        required: false
-    },
-    dlicense: {
-        type: String,
-        required: false,
-    },
-    dpolicy: {
-        type: String,
-        required: false,
-    },
-    dexperience: {
-        type: Number,
-        required: false,
-    }
-});
-
 const BookformSchema = new mongoose.Schema({
     bpickup:{
         type:String,
@@ -42,7 +15,7 @@ const BookformSchema = new mongoose.Schema({
     },
     bdropDate:{
         type:Date,
-        required:false,
+        required:true,
     },
     
     bname: {
@@ -69,7 +42,11 @@ const BookformSchema = new mongoose.Schema({
         type: String,
         required: false,
     },
-    drivers: [DriverSchema]
+
+    driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', default: null },
+    
+    
+   
 });
 
 module.exports = mongoose.model('Bookform', BookformSchema);

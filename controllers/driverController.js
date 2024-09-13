@@ -2,6 +2,7 @@ const Driver  = require('../models/driverModel');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const Role = require('../models/roleModel');
+const bookingModel=require('../models/checkoutModel')
 const createError = require('../middleware/error');
 const createSuccess = require('../middleware/success');
 const path = require('path');
@@ -237,4 +238,69 @@ const driverLogout = (req, res, next) => {
     }
 };
 
-module.exports = { createDriver, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout };
+//assign driver 
+const assignDriver = async (req, res, next) => {
+    try {
+        const { id } = req.params; // Extract the driver ID from the route parameters
+        const { clientId, pickDate, dropDate } = req.body; // Extract relevant data from request body
+
+        // Create the new driver status object
+        const newStatus = {
+            clientId: clientId,
+            pickDate: new Date(pickDate), // Ensure dates are properly formatted
+            dropDate: new Date(dropDate)
+        };
+
+        // Find and update the driver by ID, pushing the new status
+        const driverData = await Driver.findByIdAndUpdate(
+            id,  // Search by driver _id
+            { $push: { driverStatus: newStatus } },  // Push new driver status
+            { new: true }  // Return the updated document after modification
+        );
+
+        // If driver not found, return a 404 error
+        if (!driverData) {
+            return res.status(404).json({ message: "Driver not found" });
+        }
+
+        // Return success response
+        res.status(200).json({ message: "Driver assigned successfully", driverData });
+
+    } catch (error) {
+        // Log and handle any errors
+        console.error("Error occurred:", error);
+        res.status(500).json({ message: "An error occurred", error: error.message });
+    }
+};
+
+const getDriverBookings = async (req, res) => {
+    const { driverId } = req.params;
+
+    try {
+        // Fetch the driver with populated bookings
+        const driver = await Driver.findById(driverId)
+        const clientIds = driver.driverStatus.map(booking => booking.clientId);
+        const bookings = await bookingModel.find({_id: { $in: clientIds } });
+
+        if (!driver) {
+            return res.status(404).json({ message: 'Driver not found' });
+        }
+
+        res.json({
+            success: true,
+            driver: {
+                name: driver.name,
+                mobileNumber: driver.mobileNumber,
+                email: driver.email,
+                address: driver.address,
+                bookings:bookings
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+};
+
+
+module.exports = { createDriver,assignDriver,  getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout , getDriverBookings  };

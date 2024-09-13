@@ -8,6 +8,15 @@ const imageSchema = new mongoose.Schema({
     contentType: { type: String, required: true }
 });
 
+const dateSchema = new mongoose.Schema({
+    clientId:{
+      type: String,
+      required: false
+    },
+    pickDate:{ type:Date, required:false },
+    dropDate:{ type:Date, required: false }
+})
+
 const driversSchema = new Schema(
     {
         name: { type: String, required: true },
@@ -16,6 +25,21 @@ const driversSchema = new Schema(
         password: { type: String, required: true },
         image: imageSchema,
         address: { type: String, required: false },
+        availability: [{
+          type: [Date],
+          required: false
+      }],
+      driverStatus: [dateSchema],
+      bookings: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Bookform',
+      }],
+
+      status: {
+        type: String,
+        enum: ['available', 'assigned'], // Restrict to these values
+        default: 'available' // Default status
+    },
        
         otpExpiration: { type: Date },
         roles: {

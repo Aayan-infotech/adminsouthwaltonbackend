@@ -1,90 +1,42 @@
-const Task = require("../models/taskModel");
+const express = require('express');
+const mongoose = require('mongoose');
+const Task = require('../models/taskModel');
+const Driver = require('../models/driverModel');
+const Bookform = require('../models/checkoutModel');
 
-// Create a new task
-exports.createTask = async (req, res) => {
-  console.log(req.body);
-  const { driverName, customerName, pickupAddress, deliveryAddress, pickupDate, deliveryDate } = req.body;
+// Get all bookings for a specific driver
+const getBookingsForDriver = async (req, res) => {
+    const { driverId } = req.params;
 
-  try {
-    const taskEntry = new Task({
-      driverName,
-      customerName,
-      pickupAddress,
-      deliveryAddress,
-      pickupDate,
-      deliveryDate
-    });
+    if (!driverId) {
+        return res.status(400).json({ success: false, message: "Driver ID is required" });
+    }
 
-    const newTask = await taskEntry.save();
-    res.status(201).json(newTask);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
-
-// Get all tasks
-exports.getTasks = async (req, res) => {
-  try {
-    const tasks = await Task.find();
-    res.json(tasks);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-};
-
-// get task by ID
-exports.getTaskById = async (req, res) => {
     try {
-      const task = await Task.findById(req.params.id);
-      if (!task) {
-        return res.status(404).json({ message: "Task not found" });
-      }
-      res.json(task);
-    } catch (err) {
-      console.error("Get Task Error:", err);
-      res.status(500).json({ message: err.message });
+        // Find all tasks for the given driver and populate booking and driver details
+        const tasks = await Task.find({ driver: driverId })
+            .populate('booking')  // Populate booking details
+            .populate('driver')   // Populate driver details
+            .exec();
+
+        // If no tasks are found
+        if (tasks.length === 0) {
+            return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
+        }
+
+        // Return the tasks with populated details
+        res.json({
+            success: true,
+            message: "Bookings retrieved successfully",
+            tasks: tasks
+        });
+    } catch (error) {
+        console.error('Error retrieving bookings for driver:', error);
+        res.status(500).json({ success: false, message: 'Server error' });
     }
-  };
-
-// Update a task
-exports.updateTask = async (req, res) => {
-  try {
-    const updateData = {
-      driverName: req.body.driverName,
-      customerName: req.body.customerName,
-      pickupAddress: req.body.pickupAddress,
-      deliveryAddress: req.body.deliveryAddress,
-      pickupDate: req.body.pickupDate,
-      deliveryDate: req.body.deliveryDate
-    };
-
-    const updatedTask = await Task.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
-
-    if (!updatedTask) {
-      return res.status(404).json({ message: "Task not found" });
-    }
-
-    res.json(updatedTask);
-  } catch (err) {
-    console.error("Update Error:", err);
-    res.status(400).json({ message: err.message });
-  }
 };
 
-// Delete a task
-exports.deleteTask = async (req, res) => {
-  try {
-    const task = await Task.findById(req.params.id);
-    if (!task) {
-      return res.status(404).json({ message: "Task not found" });
-    }
-    await Task.deleteOne({ _id: req.params.id });
-    res.json({ message: "Task deleted" });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+module.exports = {
+    getBookingsForDriver,
+    // other controllers...
 };
