@@ -1,13 +1,9 @@
-const Payment = require("../models/PaymentModel")
+const Payment = require("../models/PaymentModel");
 const Damage = require("../models/damageModel");
-
-
-
 const multer = require("multer");
 const path = require("path");
 
-const stripe = require('../stripe');
-
+// Set up multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, "uploads/");
@@ -19,70 +15,95 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-
-// Create
+// Create Damage Record
 exports.createDamage = async (req, res) => {
-
   const images = req.files ? req.files.map(file => file.filename) : [];
   
-    try {
-      const { transactionId, vnumber, damage, reason, images } = req.body;
-      
-      // Create a new Damage instance
-      const newDamage = new Damage({
-        transactionId,
-        vnumber,
-        damage,
-        reason,
-        images
-      });
-  
-      // Save to the database
-      await newDamage.save();
-      
-      // Send response
-      res.status(201).json({ message: 'Damage record created successfully', data: newDamage });
-    } catch (error) {
-      console.error('Error creating damage record:', error);
-      res.status(500).json({ message: 'Failed to create damage record' });
-    }
-  };
-
-
-
-
-// Get all
-exports.getDamages = async (req, res) => {
   try {
-    let damages = await Damage.find();
-    res.json(damages);
-  } catch (err) {
-    console.log(err); // Add this line to see error details
-    res.status(500).json({ message: err.message });
+    const { bookingId, damage, reason } = req.body;
+
+    // Fetch the payment record for the provided bookingId
+    const payment = await Payment.findOne({ bookingId });
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'No payment record found for the provided bookingId',
+      });
+    }
+
+    // Create a new Damage instance
+    const newDamage = new Damage({
+      bookingId,
+      transactionId: payment.transactionId, // Automatically fetch transactionId from Payment model
+      damage,
+      reason,
+      images,
+    });
+
+    // Save the damage record to the database
+    const savedDamage = await newDamage.save();
+    
+    res.status(201).json({
+      success: true,
+      message: 'Damage record created successfully',
+      data: savedDamage,
+    });
+  } catch (error) {
+    console.error('Error creating damage record:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create damage record',
+      error: error.message,
+    });
   }
 };
 
-// Get by ID
+// Get all Damage Records
+exports.getDamages = async (req, res) => {
+  try {
+    const damages = await Damage.find();
+    res.json({
+      success: true,
+      message: 'Damages retrieved successfully',
+      data: damages,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+// Get Damage by ID
 exports.getDamageById = async (req, res) => {
   try {
     const damage = await Damage.findById(req.params.id);
     if (!damage) {
-      return res.status(404).json({ message: "Damage record not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Damage record not found",
+      });
     }
-    res.json(damage);
+    res.json({
+      success: true,
+      message: 'Damage record retrieved successfully',
+      data: damage,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-// Update
+// Update Damage Record
 exports.updateDamage = async (req, res) => {
   try {
     const updateData = {
-      vname: req.body.vname,
-      vnumber: req.body.vnumber,
       damage: req.body.damage,
-      username: req.body.username,
       reason: req.body.reason,
     };
 
@@ -97,76 +118,99 @@ exports.updateDamage = async (req, res) => {
     );
 
     if (!updatedDamage) {
-      return res.status(404).json({ message: "Damage record not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Damage record not found",
+      });
     }
 
-    res.json(updatedDamage);
+    res.json({
+      success: true,
+      message: 'Damage record updated successfully',
+      data: updatedDamage,
+    });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(400).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-// Delete
+// Delete Damage Record
 exports.deleteDamage = async (req, res) => {
   try {
     const damage = await Damage.findById(req.params.id);
     if (!damage) {
-      return res.status(404).json({ message: "Damage record not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Damage record not found",
+      });
     }
     await Damage.deleteOne({ _id: req.params.id });
-    res.json({ message: "Damage record deleted" });
+    res.json({
+      success: true,
+      message: "Damage record deleted",
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };
 
-
-//refund
+// Process Refund
 exports.processRefund = async (req, res) => {
   try {
-    const damageId = req.params.id; // Get damage ID from URL parameters
-    const { transactionId } = req.body; // Get transaction ID from request body
-
-    // Find the damage report by ID
+    const damageId = req.params.id;
     const damage = await Damage.findById(damageId);
     if (!damage) {
-      return res.status(404).json({ message: 'Damage report not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Damage report not found',
+      });
     }
 
     if (damage.refunded) {
-      return res.status(400).json({ message: 'Refund has already been processed for this damage report' });
+      return res.status(400).json({
+        success: false,
+        message: 'Refund has already been processed for this damage report',
+      });
     }
 
-    // Fetch the payment details from the Payment model using transactionId
-    const payment = await Payment.findOne({ transactionId });
+    // Fetch the payment details using the transactionId from the damage record
+    const payment = await Payment.findOne({ transactionId: damage.transactionId });
     if (!payment) {
-      return res.status(404).json({ message: 'Payment details not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Payment details not found',
+      });
     }
 
-    // Retrieve the original payment details via Stripe using transactionId
-    const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
+    const paymentIntent = await stripe.paymentIntents.retrieve(damage.transactionId);
+    const refundAmount = Math.floor(paymentIntent.amount * 0.25);
 
-    // Calculate 25% of the original amount (ensure amount is in smallest currency unit)
-    const refundAmount = Math.floor(paymentIntent.amount * 0.25); // e.g., cents
-
-    // Process the 25% refund via Stripe
     const refund = await stripe.refunds.create({
-      payment_intent: transactionId,
-      amount: refundAmount, // Refund 25%
+      payment_intent: damage.transactionId,
+      amount: refundAmount,
     });
 
-    // Update the damage report to mark it as refunded
     damage.refunded = true;
     await damage.save();
 
-    res.status(200).json({ message: '25% refund processed successfully', refund, damage });
+    res.status(200).json({
+      success: true,
+      message: '25% refund processed successfully',
+      refund,
+      damage,
+    });
   } catch (error) {
     console.error('Error processing refund:', error);
-    res.status(500).json({ message: 'Error processing refund', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Error processing refund',
+      error: error.message,
+    });
   }
 };
-
-
-
-
-
