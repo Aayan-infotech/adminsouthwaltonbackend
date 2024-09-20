@@ -1,3 +1,5 @@
+const mongoose = require("mongoose"); 
+
 const Payment = require("../models/PaymentModel");
 const Damage = require("../models/damageModel");
 const multer = require("multer");
@@ -16,24 +18,29 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Create Damage Record
+
+// Create Damage Record
 exports.createDamage = async (req, res) => {
   const images = req.files ? req.files.map(file => file.filename) : [];
   
   try {
     const { bookingId, damage, reason } = req.body;
 
-    // Fetch the payment record for the provided bookingId
-    const payment = await Payment.findOne({ bookingId });
+    // Convert bookingId to ObjectId if it's not already one
+    const objectIdBookingId = new mongoose.Types.ObjectId(bookingId);  // Use "new" keyword here
+
+    // Fetch the payment record using the ObjectId of the bookingId
+    const payment = await Payment.findOne({ _id: objectIdBookingId });
     if (!payment) {
       return res.status(404).json({
         success: false,
-        message: 'No payment record found for the provided bookingId',
+        message: `No payment record found for the provided bookingId: ${bookingId}`,
       });
     }
 
     // Create a new Damage instance
     const newDamage = new Damage({
-      bookingId,
+      bookingId,  // Store the bookingId as a reference to the Payment record
       transactionId: payment.transactionId, // Automatically fetch transactionId from Payment model
       damage,
       reason,
