@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
 
-const damgeSchema = new mongoose.Schema({
+const damageSchema = new mongoose.Schema({
 
-  vname: {
+  bookingId: {
     type: String,
-    required: true,
+      
+    required: false,
   },
  
   vnumber: {
@@ -12,21 +13,23 @@ const damgeSchema = new mongoose.Schema({
     required: true,
   },
   damage: {
-    type: String,
-    required: true,
-  },
-  username: {
-    type: String,
-    required: true,
-  },
+    type: Boolean, default : false },
+ 
   reason: {
     type: String,
     required: true,
   },
- 
-  image: {
+
+  transactionId: {
     type: String,
+    required: true,
   },
+ 
+  images: [{ type: String }],
+
+  refunded: { type: Boolean, default: false }, 
+  stripePaymentId: { type: String },
+
 });
 
-module.exports = mongoose.model('Damage', damgeSchema);
+module.exports = mongoose.model('Damage', damageSchema);

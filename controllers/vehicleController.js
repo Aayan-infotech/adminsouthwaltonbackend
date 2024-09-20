@@ -21,11 +21,8 @@ exports.createVehicle = async (req, res) => {
   const vehicleEntry = new Vehicle({
    
     vname,
-    
-   
     vseats,
     vprice,
-   
     image,
   });
   try {

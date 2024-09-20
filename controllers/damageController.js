@@ -1,6 +1,12 @@
+const Payment = require("../models/PaymentModel")
 const Damage = require("../models/damageModel");
+
+
+
 const multer = require("multer");
 const path = require("path");
+
+const stripe = require('../stripe');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -13,25 +19,37 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+
 // Create
 exports.createDamage = async (req, res) => {
-  const { vname, vnumber, damage, username, reason } = req.body;
-  const image = req.file ? req.file.filename : null;
-  const damageEntry = new Damage({
-    vname,
-    vnumber,
-    damage,
-    username,
-    reason,
-    image,
-  });
-  try {
-    const newDamage = await damageEntry.save();
-    res.status(201).json(newDamage);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
-  }
-};
+
+  const images = req.files ? req.files.map(file => file.filename) : [];
+  
+    try {
+      const { transactionId, vnumber, damage, reason, images } = req.body;
+      
+      // Create a new Damage instance
+      const newDamage = new Damage({
+        transactionId,
+        vnumber,
+        damage,
+        reason,
+        images
+      });
+  
+      // Save to the database
+      await newDamage.save();
+      
+      // Send response
+      res.status(201).json({ message: 'Damage record created successfully', data: newDamage });
+    } catch (error) {
+      console.error('Error creating damage record:', error);
+      res.status(500).json({ message: 'Failed to create damage record' });
+    }
+  };
+
+
+
 
 // Get all
 exports.getDamages = async (req, res) => {
@@ -39,6 +57,7 @@ exports.getDamages = async (req, res) => {
     let damages = await Damage.find();
     res.json(damages);
   } catch (err) {
+    console.log(err); // Add this line to see error details
     res.status(500).json({ message: err.message });
   }
 };
@@ -66,8 +85,9 @@ exports.updateDamage = async (req, res) => {
       username: req.body.username,
       reason: req.body.reason,
     };
-    if (req.file) {
-      updateData.image = req.file.filename;
+
+    if (req.files) {
+      updateData.images = req.files.map(file => file.filename);
     }
 
     const updatedDamage = await Damage.findByIdAndUpdate(
@@ -99,3 +119,54 @@ exports.deleteDamage = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
+//refund
+exports.processRefund = async (req, res) => {
+  try {
+    const damageId = req.params.id; // Get damage ID from URL parameters
+    const { transactionId } = req.body; // Get transaction ID from request body
+
+    // Find the damage report by ID
+    const damage = await Damage.findById(damageId);
+    if (!damage) {
+      return res.status(404).json({ message: 'Damage report not found' });
+    }
+
+    if (damage.refunded) {
+      return res.status(400).json({ message: 'Refund has already been processed for this damage report' });
+    }
+
+    // Fetch the payment details from the Payment model using transactionId
+    const payment = await Payment.findOne({ transactionId });
+    if (!payment) {
+      return res.status(404).json({ message: 'Payment details not found' });
+    }
+
+    // Retrieve the original payment details via Stripe using transactionId
+    const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
+
+    // Calculate 25% of the original amount (ensure amount is in smallest currency unit)
+    const refundAmount = Math.floor(paymentIntent.amount * 0.25); // e.g., cents
+
+    // Process the 25% refund via Stripe
+    const refund = await stripe.refunds.create({
+      payment_intent: transactionId,
+      amount: refundAmount, // Refund 25%
+    });
+
+    // Update the damage report to mark it as refunded
+    damage.refunded = true;
+    await damage.save();
+
+    res.status(200).json({ message: '25% refund processed successfully', refund, damage });
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    res.status(500).json({ message: 'Error processing refund', error: error.message });
+  }
+};
+
+
+
+
+

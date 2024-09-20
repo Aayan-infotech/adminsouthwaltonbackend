@@ -7,10 +7,10 @@ const vehicleSchema = new mongoose.Schema({
     required: true,
   },
   
-  // vnumber: {
-  //   type: String,
-  //   required: true,
-  // },
+  damagePrice: {
+    type: String,
+    required: false,
+  },
   vseats: {
     type: String,
     required: true,

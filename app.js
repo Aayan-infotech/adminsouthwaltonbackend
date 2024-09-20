@@ -20,7 +20,7 @@ const vehicleRoute = require('./routes/vehicleRoute');
 const taskRoute = require('./routes/taskRoute');
 const damageRoute = require('./routes/damageRoute');
 
-const billingRoute = require('./routes/billingRoute');
+const PaymentRoute = require('./routes/PaymentRoute');
 
 const signRoutes = require('./routes/signRoute');
 const feedbackRoute = require('./routes/feedbackRoute');
@@ -56,7 +56,7 @@ app.use('/api/vehicle', vehicleRoute);
 app.use('/api/task', taskRoute);
 app.use('/api/damage', damageRoute);
 
-app.use('/api/billing', billingRoute);
+app.use('/api/pay', PaymentRoute);
 
 app.use('/api/sign', signRoutes);
 app.use('/api/feedback', feedbackRoute);
