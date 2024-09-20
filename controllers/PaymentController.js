@@ -34,6 +34,19 @@ const getAllPayments = async (req, res) => {
   }
 };
 
+const getAllPays = async (req, res) => {
+  try {
+      // Fetch all documents from the Payment collection
+      const payments = await Payment.find();
+
+      // Send a success response with the list of payments
+      res.status(200).json(payments);
+  } catch (error) {
+      // Send an error response if something goes wrong
+      res.status(500).json({ message: error.message });
+  }
+};
+
 const deletePayment = async (req, res) => {
     const { id } = req.params;
 
@@ -70,5 +83,6 @@ module.exports = {
     PaymentInfo,
     getAllPayments,
     deletePayment,
-    getPaymentIntent
+    getPaymentIntent,
+    getAllPays
 };

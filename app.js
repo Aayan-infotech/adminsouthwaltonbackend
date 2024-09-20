@@ -1,6 +1,6 @@
 // Load environment variables from .env file
 require('dotenv').config();
-
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 // Import necessary modules
 const express = require('express');
 const mongoose = require('mongoose');

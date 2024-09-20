@@ -1,23 +1,15 @@
 const mongoose = require ('mongoose');
 const paymentSchema=mongoose.Schema(
     {
-        bookingId:{
-            type:String,
-            require:false
-        },
-        phone:{
-            type:String,
-            require:false
-        },
-        transactionId:{
-            type:String,
-            require:false
-        },
-        email:{
-            type:String,
-            require:false
-        }
-        
+        userId: { type: Number, required: false },
+         amount: { type: Number, required: true },
+        phone:{type:String,require:false },
+        transactionId:{type:String,require:false },
+        email:{type:String,require:false},
+        vnumber: {type: String,required: false, },
+          damage: {type: String, default : false },
+          reason: {type: String,required: false, },
+          images: [{ type: String }],
     }
 
 )

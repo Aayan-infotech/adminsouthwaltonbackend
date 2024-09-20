@@ -18,11 +18,19 @@ const createBookform = async (req, res) => {
 const getAllBookforms = async (req, res) => {
     try {
         const bookforms = await Bookform.find();
-        res.json(bookforms);
+        res.json({
+            success: true,
+            message: 'Bookings retrieved successfully.',
+            data: bookforms,
+        });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: error.message 
+        });
     }
 };
+
 
 // Get a specific booking form by ID
 const getBookformById = async (req, res) => {
