@@ -13,12 +13,18 @@ const dateSchema = new mongoose.Schema({
       type: String,
       required: false
     },
+    status:{ 
+      type: String,
+      enum: ['PENDING', 'ACCEPTED', 'DELIVERED', 'COMPLETED'],
+      default: 'PENDING'
+    },
     pickDate:{ type:Date, required:false },
     dropDate:{ type:Date, required: false }
 })
 
 const driversSchema = new Schema(
     {
+        
         name: { type: String, required: true },
         mobileNumber: { type: String, required: false },
         email: { type: String, required: true, unique: true },

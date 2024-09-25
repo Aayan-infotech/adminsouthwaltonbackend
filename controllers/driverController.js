@@ -2,7 +2,7 @@ const Driver  = require('../models/driverModel');
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const Role = require('../models/roleModel');
-const bookingModel=require('../models/checkoutModel')
+const Bookform=require('../models/checkoutModel')
 const createError = require('../middleware/error');
 const createSuccess = require('../middleware/success');
 const path = require('path');
@@ -84,13 +84,17 @@ const getAllDrivers = async (req, res, next) => {
 };
 
 // Get Driver By Id
+// Get Driver By Id
 const getDriverById = async (req, res, next) => {
     try {
         const { id } = req.params;
         const driverById = await Driver.findById(id);
 
         if (!driverById) {
-            return next(createError(404, "Driver Not Found"));
+            return res.status(404).json({
+                success: false,
+                message: "Driver Not Found"
+            });
         }
 
         // Check if Driver has an image
@@ -102,11 +106,19 @@ const getDriverById = async (req, res, next) => {
             driverWithImageURLs.image = null;
         }
 
-        return next(createSuccess(200, "Driver found", driverWithImageURLs));
+        return res.status(200).json({
+            success: true,
+            message: "Driver found",
+            driver: driverWithImageURLs
+        });
 
     } catch (error) {
         console.error(error);  // Log the error for debugging
-        return next(createError(500, "Internal Server Error!"));
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error",
+            error: error.message
+        });
     }
 };
 
@@ -263,6 +275,11 @@ const assignDriver = async (req, res, next) => {
             return res.status(404).json({ message: "Driver not found" });
         }
 
+        const bookingData =  await Bookform.findByIdAndUpdate(clientId,
+            {driver:id},
+            {new: true}
+        );
+
         // Return success response
         res.status(200).json({ message: "Driver assigned successfully", driverData });
 
@@ -280,7 +297,7 @@ const getDriverBookings = async (req, res) => {
         // Fetch the driver with populated bookings
         const driver = await Driver.findById(driverId)
         const clientIds = driver.driverStatus.map(booking => booking.clientId);
-        const bookings = await bookingModel.find({_id: { $in: clientIds } });
+        const bookings = await Bookform.find({_id: { $in: clientIds } }).sort({bdropDate:-1});
 
         if (!driver) {
             return res.status(404).json({ message: 'Driver not found' });
@@ -293,7 +310,18 @@ const getDriverBookings = async (req, res) => {
                 mobileNumber: driver.mobileNumber,
                 email: driver.email,
                 address: driver.address,
-                bookings:bookings
+                bookings: bookings.map(booking => ({
+                    id: booking._id,
+                    name: booking.bname,
+                    phone: booking.bphone,
+                    email: booking.bemail,
+                    size: booking.bsize,
+                    pickup: booking.bpickup,
+                    drop: booking.bdrop,
+                    pickDate: booking.bpickDate,
+                    dropDate: booking.bdropDate,
+                    status: booking.status  // Include the status here
+                }))
             }
         });
     } catch (error) {
@@ -303,4 +331,65 @@ const getDriverBookings = async (req, res) => {
 };
 
 
-module.exports = { createDriver,assignDriver,  getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout , getDriverBookings  };
+// Update Booking Status
+const updateBookingStatus = async (req, res) => {
+    const { driverId, bookingId } = req.params; 
+    const { inputStatus } = req.body; 
+
+    try {
+        // Step 1: Find the driver
+        const driver = await Driver.findById(driverId);
+        if (!driver) {
+            console.log(`Driver with ID ${driverId} not found.`);
+            return res.status(404).json({ message: "Driver not found" });
+        }
+
+        // Step 2: Find the specific booking within the driver's status list
+        const booking = driver.driverStatus.find((booking) => booking._id.toString() === bookingId);
+
+        // Step 3: If the booking is not found, return an error
+        if (!booking) {
+            return res.status(404).json({ message: "Booking not found for this driver" });
+        }
+
+        // Step 4: Update the status of the found booking
+        booking.status = inputStatus;
+
+        // Step 5: Save the updated driver document
+        await driver.save();
+
+        // Step 6: Send the updated booking data as the response
+        res.status(200).json({ message: "Booking status updated successfully", booking });
+    } catch (error) {
+        console.error("Error updating booking status:", error.message);
+        res.status(500).json({ message: "Error updating booking status", error: error.message });
+    }
+};
+
+
+const getBookingStatus = async (req, res, next) => {
+    try {
+        const { bookingId } = req.params; // Booking ID from the URL
+
+        const booking = await Bookform.findById(bookingId);
+        if (!booking) {
+            return next(createError(404, "Booking not found"));
+        }
+
+        // Return the current status of the booking
+        return res.status(200).json({
+            status: "success",
+            data: {
+                bookingId: booking._id,
+                status: booking.status,
+            },
+        });
+    } catch (error) {
+        return next(createError(500, "Something went wrong"));
+    }
+};
+
+
+
+
+module.exports = { updateBookingStatus, getBookingStatus, createDriver,assignDriver,  getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout , getDriverBookings  };

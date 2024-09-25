@@ -1,9 +1,12 @@
 const mongoose = require("mongoose"); 
-
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Payment = require("../models/PaymentModel");
 const Damage = require("../models/damageModel");
 const multer = require("multer");
-const path = require("path");
+const nodemailer = require("nodemailer");
+const PDFDocument = require("pdfkit");
+const path = require('path');
+const fs = require('fs');
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -17,7 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Create Damage Record
+
 
 // Create Damage Record
 exports.createDamage = async (req, res) => {
@@ -64,6 +67,64 @@ exports.createDamage = async (req, res) => {
     });
   }
 };
+
+exports.sendDamageReport = async (damage) => {
+  const doc = new PDFDocument();
+  const pdfPath = `uploads/damage_report_${damage._id}.pdf`;
+  
+  try {
+    doc.pipe(fs.createWriteStream(pdfPath));
+
+    // Add content to the PDF
+    doc.fontSize(20).text('Damage Report', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Damage ID: ${damage._id}`);
+    doc.text(`Booking ID: ${damage.bookingId}`);
+    doc.text(`Damage Description: ${damage.damage}`);
+    doc.text(`Reason: ${damage.reason}`);
+
+    if (damage.images && Array.isArray(damage.images) && damage.images.length > 0) {
+      doc.text(`Images: ${damage.images.join(', ')}`);
+    } else {
+      doc.text('Images: No images attached');
+    }
+
+    doc.end();
+
+    // Setup email transport
+    const transporter = nodemailer.createTransport({
+      service: 'Gmail', 
+      auth: {
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: 'mahi.sahai@aayaninfotech.com', 
+      subject: 'New Damage Report',
+      text: `A new damage report has been created. Damage ID: ${damage._id}`,
+      attachments: [
+        {
+          filename: path.basename(pdfPath),
+          path: pdfPath,
+        },
+      ],
+    });
+
+    // Clean up: delete the PDF after sending the email
+    fs.unlink(pdfPath, (err) => {
+      if (err) console.error('Error deleting PDF file:', err);
+    });
+
+  } catch (error) {
+    console.error('Error sending damage report:', error);
+    throw new Error('Failed to send damage report email'); // Throw error for further handling
+  }
+};
+
+
 
 // Get all Damage Records
 exports.getDamages = async (req, res) => {
@@ -169,55 +230,28 @@ exports.deleteDamage = async (req, res) => {
 
 // Process Refund
 exports.processRefund = async (req, res) => {
+  const { transactionId } = req.body;
+
   try {
-    const damageId = req.params.id;
-    const damage = await Damage.findById(damageId);
-    if (!damage) {
-      return res.status(404).json({
-        success: false,
-        message: 'Damage report not found',
-      });
-    }
-
-    if (damage.refunded) {
-      return res.status(400).json({
-        success: false,
-        message: 'Refund has already been processed for this damage report',
-      });
-    }
-
-    // Fetch the payment details using the transactionId from the damage record
-    const payment = await Payment.findOne({ transactionId: damage.transactionId });
-    if (!payment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Payment details not found',
-      });
-    }
-
-    const paymentIntent = await stripe.paymentIntents.retrieve(damage.transactionId);
-    const refundAmount = Math.floor(paymentIntent.amount * 0.25);
+    const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
+    
+    const chargeId = paymentIntent.latest_charge; 
 
     const refund = await stripe.refunds.create({
-      payment_intent: damage.transactionId,
-      amount: refundAmount,
+      charge: chargeId,
+      amount: Math.floor(0.25 * paymentIntent.amount_received), 
     });
 
-    damage.refunded = true;
-    await damage.save();
 
     res.status(200).json({
-      success: true,
-      message: '25% refund processed successfully',
-      refund,
-      damage,
+      message: 'Refund processed successfully',
+      refund: refund,
     });
   } catch (error) {
-    console.error('Error processing refund:', error);
     res.status(500).json({
-      success: false,
-      message: 'Error processing refund',
+      message: 'Failed to process refund',
       error: error.message,
     });
   }
 };
+

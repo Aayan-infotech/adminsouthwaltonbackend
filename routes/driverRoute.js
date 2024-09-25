@@ -1,6 +1,19 @@
 const express = require("express");
 const Driver = require('../models/driverModel');
-const { createDriver, assignDriver, getAllDrivers,getDriverBookings, getDriverById, updateDriverById, deleteDriver, getImage ,driverLogin, driverLogout} = require('../controllers/driverController');
+const {
+    getBookingStatus,
+  updateBookingStatus,
+  createDriver,
+  assignDriver,
+  getAllDrivers,
+  getDriverBookings,
+  getDriverById,
+  updateDriverById,
+  deleteDriver,
+  getImage,
+  driverLogin,
+  driverLogout
+} = require('../controllers/driverController');
 const { verifyAdmin } = require('../middleware/verifyToken');
 const router = express.Router();
 const upload = require('../middleware/upload');
@@ -11,13 +24,20 @@ router.get('/:id', verifyAdmin, getDriverById);
 router.put('/:id', upload.single('image'), verifyAdmin, updateDriverById);      
 router.delete('/:id', verifyAdmin, deleteDriver);  
 router.get('/image/:filename', getImage); 
+
 // Driver Login
-router.post('/login',verifyAdmin, driverLogin);
-router.put('/assignDriver/:id',assignDriver);
+router.post('/login', verifyAdmin, driverLogin);
+
+// Assign driver to a booking
+router.put('/assignDriver/:id', assignDriver);
+
+// Get bookings assigned to a driver
 router.get('/:driverId/bookings', getDriverBookings);
+router.get('/bookings/:bookingId/getStatus', getBookingStatus);
+router.put('/bookings/:driverId/:bookingId', updateBookingStatus);
+
 
 // Driver Logout
 router.post('/logout', driverLogout);
-
 
 module.exports = router;

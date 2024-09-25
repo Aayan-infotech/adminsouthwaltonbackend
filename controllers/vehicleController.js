@@ -37,11 +37,21 @@ exports.createVehicle = async (req, res) => {
 exports.getVehicles = async (req, res) => {
   try {
     let vehicles = await Vehicle.find();
+
+    // Create full URLs for the images
+    vehicles = vehicles.map(vehicle => {
+      return {
+        ...vehicle._doc, // Spread operator to include all fields
+        image: vehicle.image ? `${req.protocol}://${req.get('host')}/uploads/${vehicle.image}` : null // Convert filename to URL
+      };
+    });
+
     res.json(vehicles);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Update
 exports.updateVehicle = async (req, res) => {

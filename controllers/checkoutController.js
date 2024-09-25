@@ -17,7 +17,7 @@ const createBookform = async (req, res) => {
 // Get all booking forms
 const getAllBookforms = async (req, res) => {
     try {
-        const bookforms = await Bookform.find();
+        let bookforms = await Bookform.find().sort({ createdAt: -1 });
         res.json({
             success: true,
             message: 'Bookings retrieved successfully.',
@@ -30,6 +30,7 @@ const getAllBookforms = async (req, res) => {
         });
     }
 };
+
 
 
 // Get a specific booking form by ID

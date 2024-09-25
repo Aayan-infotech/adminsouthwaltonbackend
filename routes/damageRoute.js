@@ -25,6 +25,8 @@ router.get('/:id', damageController.getDamageById);
 router.post('/add', uploadMultiple, damageController.createDamage); 
 router.put('/:id', uploadMultiple, damageController.updateDamage); 
 router.delete('/:id', damageController.deleteDamage);
-router.post('/:id/process-refund', damageController.processRefund);
+router.post('/refund/:id', damageController.processRefund);
+router.post("/send-damage-report", damageController.sendDamageReport);
+
 
 module.exports = router;

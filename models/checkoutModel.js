@@ -1,23 +1,23 @@
 const mongoose = require('mongoose');
 
 const BookformSchema = new mongoose.Schema({
-    bpickup:{
-        type:String,
-        required:false,
+    bpickup: {
+        type: String,
+        required: false,
     },
-    bdrop:{
-        type:String,
-        required:false,
+    bdrop: {
+        type: String,
+        required: false,
     },
-    bpickDate:{
-        type:Date,
-        required:false,
+    bpickDate: {
+        type: Date,
+        required: false,
     },
-    bdropDate:{
-        type:Date,
-        required:true,
+    bdropDate: {
+        type: Date,
+        required: true,
     },
-    
+
     bname: {
         type: String,
         required: true,
@@ -48,10 +48,19 @@ const BookformSchema = new mongoose.Schema({
         required: false,
     },
 
-    driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', default: null },
-    
-    
-   
-});
+    driver: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Driver',
+        default: null
+    },
+    status: {
+        type: String,
+        enum: ['PENDING', 'ACCEPTED', 'DELIVERED', 'COMPLETED'],
+        default: 'PENDING'
+    }
+
+
+
+},{ timestamps: true });
 
 module.exports = mongoose.model('Bookform', BookformSchema);
