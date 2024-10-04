@@ -43,11 +43,16 @@ const BookformSchema = new mongoose.Schema({
         required: false,
     },
 
-    payementID: {
-        type: String,
+    paymentId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Payment',  // Assuming your Payment model is named 'Payment'
         required: false,
+      },
+      
+      vehiclesId:{
+        type:String,
+        require:false
     },
-
     driver: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Driver',

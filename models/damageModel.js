@@ -2,7 +2,12 @@ const mongoose = require('mongoose');
 
 const damageSchema = new mongoose.Schema({
 
-  bookingId: { type: String,required: false, },
+  paymentId: { type: String,required: false, },
+  bookingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bookform', // Ensure this matches your booking model
+    required: true,
+  },
   transactionId: { type: String, required: true, },
   damage: { type: String, default : false },
    images: [{ type: String }],
