@@ -1,7 +1,7 @@
 const express = require("express");
 const Driver = require('../models/driverModel');
 const {
-    getBookingStatus,
+  getFilteredBookings ,
   updateBookingStatus,
   createDriver,
   assignDriver,
@@ -33,9 +33,9 @@ router.put('/assignDriver/:id', assignDriver);
 
 // Get bookings assigned to a driver
 router.get('/:driverId/bookings', getDriverBookings);
-router.get('/bookings/:bookingId/getStatus', getBookingStatus);
-router.put('/bookings/:driverId/:bookingId', updateBookingStatus);
 
+router.put('/:driverId/bookings/:bookingId', updateBookingStatus);
+router.get('/:driverId/bookings', getFilteredBookings);
 
 // Driver Logout
 router.post('/logout', driverLogout);

@@ -84,7 +84,6 @@ const getAllDrivers = async (req, res, next) => {
 };
 
 // Get Driver By Id
-// Get Driver By Id
 const getDriverById = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -330,7 +329,6 @@ const getDriverBookings = async (req, res) => {
     }
 };
 
-
 // Update Booking Status
 const updateBookingStatus = async (req, res) => {
     const { driverId, bookingId } = req.params; 
@@ -344,52 +342,66 @@ const updateBookingStatus = async (req, res) => {
             return res.status(404).json({ message: "Driver not found" });
         }
 
-        // Step 2: Find the specific booking within the driver's status list
-        const booking = driver.driverStatus.find((booking) => booking._id.toString() === bookingId);
-
-        // Step 3: If the booking is not found, return an error
-        if (!booking) {
-            return res.status(404).json({ message: "Booking not found for this driver" });
-        }
-
-        // Step 4: Update the status of the found booking
-        booking.status = inputStatus;
-
-        // Step 5: Save the updated driver document
-        await driver.save();
-
-        // Step 6: Send the updated booking data as the response
-        res.status(200).json({ message: "Booking status updated successfully", booking });
-    } catch (error) {
-        console.error("Error updating booking status:", error.message);
-        res.status(500).json({ message: "Error updating booking status", error: error.message });
-    }
-};
-
-
-const getBookingStatus = async (req, res, next) => {
-    try {
-        const { bookingId } = req.params; // Booking ID from the URL
-
+        // Step 2: Find the booking based on bookingId
         const booking = await Bookform.findById(bookingId);
         if (!booking) {
-            return next(createError(404, "Booking not found"));
+            console.log(`Booking with ID ${bookingId} not found.`);
+            return res.status(404).json({ message: "Booking not found" });
         }
 
-        // Return the current status of the booking
-        return res.status(200).json({
-            status: "success",
-            data: {
-                bookingId: booking._id,
-                status: booking.status,
-            },
+        // Step 3: Update the booking status
+        booking.status = inputStatus; // Update the status with the provided input
+        const updatedBooking = await booking.save(); // Save the changes to the database
+
+        // Step 4: Return success response
+        res.status(200).json({
+            message: "Booking status updated successfully",
+            booking: {
+                id: updatedBooking._id,
+                status: updatedBooking.status,
+                // Add other booking fields as needed
+            }
         });
     } catch (error) {
-        return next(createError(500, "Something went wrong"));
+        console.error("Error occurred:", error);
+        res.status(500).json({ message: "An error occurred", error: error.message });
+    }
+};
+
+const getFilteredBookings = async (req, res) => {
+    const { driverId } = req.params; // Get driver ID from URL
+    const { status } = req.query; // Get status from query parameter
+
+    try {
+        // Construct the query based on driver ID and status
+        const query = {
+            driverId: driverId,
+        };
+
+        // Log the incoming status to see what we're filtering by
+        console.log('Incoming status:', status);
+
+        if (status) {
+            query.status = status; // Filter by status if provided
+        }
+
+        // Fetch filtered bookings
+        const bookings = await Bookform.find(query);
+
+        // Log the query and the result for debugging
+        console.log('Query:', query);
+        console.log('Filtered bookings:', bookings); // Check what bookings are being returned
+
+        // Return only the filtered bookings
+        return res.status(200).json({
+            success: true,
+            bookings: bookings, // Return only the filtered bookings
+        });
+    } catch (error) {
+        console.error('Error fetching bookings:', error); // Log error details
+        return res.status(500).json({ message: 'Error fetching bookings', error });
     }
 };
 
 
-
-
-module.exports = { updateBookingStatus, getBookingStatus, createDriver,assignDriver,  getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout , getDriverBookings  };
+module.exports = { updateBookingStatus,getFilteredBookings, createDriver,assignDriver,  getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage,driverLogin, driverLogout , getDriverBookings  };

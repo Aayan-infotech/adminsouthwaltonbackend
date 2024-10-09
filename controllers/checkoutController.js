@@ -66,53 +66,45 @@ const deleteBookform = async (req, res) => {
     }
 };
 
-const getAvailableDriversByDropDate = async (req, res) => {
-    const { bdropDate } = req.body;
-
-    if (!bdropDate) {
-        return res.status(400).json({ success: false, message: "bdropDate query parameter is required" });
-    }
-
+// Get Available Drivers by Drop Date
+const getAvailableDriversByDropDate = async (req, res, next) => {
     try {
-        // Parse the date from 'YYYY-MM-DD' format
-        const parsedDropDate = new Date(bdropDate);
-
-        // Validate the date format
-        if (isNaN(parsedDropDate.getTime())) {
-            return res.status(400).json({ success: false, message: "Invalid date format" });
-        }
-
-        // Convert the date to the start of the day (midnight) for consistency
-        parsedDropDate.setHours(0, 0, 0, 0);
-
-        // Find bookings by bdropDate
-        const bookingsOnDate = await Bookform.find({
+        const { dropDate } = req.body; // Ensure you are getting dropDate from the request body
+        
+        // Find all bookings that conflict with the given dropDate
+        const bookedDrivers = await Bookform.find({
             bdropDate: {
-                $gte: parsedDropDate,
-                $lt: new Date(parsedDropDate).setDate(parsedDropDate.getDate() + 1) // Next day
+                $eq: new Date(dropDate)  // Check for exact matches (consider using range if needed)
+            }
+        }).select('driver'); // Only get the driver IDs
+
+        const bookedDriverIds = bookedDrivers.map(booking => booking.driver); // Extract driver IDs
+
+        // Fetch available drivers excluding the booked ones
+        const availableDrivers = await Driver.find({
+            _id: { $nin: bookedDriverIds } // Exclude booked drivers
+        });
+
+        // Construct the image URLs for available drivers
+        const availableDriversWithImages = availableDrivers.map(driver => {
+            if (driver.image) {
+                const imageURL = `${req.protocol}://${req.get('host')}/api/driver/image/${driver.image.filename}`;
+                return {
+                    ...driver._doc,
+                    image: { ...driver.image._doc, url: imageURL }
+                };
+            } else {
+                return { ...driver._doc, image: null };
             }
         });
 
-        // Extract the list of drivers who are already assigned to bookings on this date
-        const assignedDriverIds = bookingsOnDate
-            .filter(booking => booking.driver) // Ensure the booking has a driver assigned
-            .map(booking => booking.driver);   // Extract the driver ID
-
-        // Find available drivers who are not assigned to any booking on this date
-        const availableDrivers = await Driver.find({
-            _id: { $in: assignedDriverIds } // Exclude drivers who are already assigned
-        });
-
-        res.json({
-            success: true,
-            message: "Available Drivers for the specified drop date",
-            drivers: availableDrivers
-        });
+        return next(createSuccess(200, "Available Drivers", availableDriversWithImages));
     } catch (error) {
         console.error(error);
-        res.status(500).json({ success: false, message: "Internal Server Error" });
+        return next(createError(500, "Internal Server Error!"));
     }
 };
+
   
 module.exports = {
     createBookform,
