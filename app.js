@@ -19,6 +19,7 @@ const checkoutRoute = require('./routes/checkoutRoute');
 const vehicleRoute = require('./routes/vehicleRoute');
 const taskRoute = require('./routes/taskRoute');
 const damageRoute = require('./routes/damageRoute');
+const reserveRoute = require('./routes/reserveRoute');
 
 const PaymentRoute = require('./routes/PaymentRoute');
 
@@ -43,7 +44,7 @@ var corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Routes
@@ -55,7 +56,7 @@ app.use('/api/book', checkoutRoute); // To list bookings
 app.use('/api/vehicle', vehicleRoute);
 app.use('/api/task', taskRoute);
 app.use('/api/damage', damageRoute);
-
+app.use('/api/reserve', reserveRoute);
 app.use('/api/pay', PaymentRoute);
 
 app.use('/api/sign', signRoutes);

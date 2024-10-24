@@ -9,13 +9,13 @@ const imageSchema = new mongoose.Schema({
 });
 
 const dateSchema = new mongoose.Schema({
-    clientId:{
+    bookingId:{
       type: String,
       required: false
     },
     status:{ 
       type: String,
-      enum: ['PENDING', 'ACCEPTED', 'DELIVERED', 'COMPLETED'],
+      enum: ['PENDING', 'DELIVERED', 'COMPLETED'],
       default: 'PENDING'
     },
     pickDate:{ type:Date, required:false },
@@ -41,12 +41,11 @@ const driversSchema = new Schema(
         ref: 'Bookform',
       }],
 
-      status: {
-        type: String,
-        enum: ['available', 'assigned'], // Restrict to these values
-        default: 'available' // Default status
+      reservationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Reservation', // Assuming there's a Reservation model
+        required: false
     },
-       
         otpExpiration: { type: Date },
         roles: {
             type: [Schema.Types.ObjectId],

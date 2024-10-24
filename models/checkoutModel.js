@@ -1,22 +1,23 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const BookformSchema = new mongoose.Schema({
-    bpickup: {
-        type: String,
-        required: false,
-    },
-    bdrop: {
-        type: String,
-        required: false,
-    },
-    bpickDate: {
-        type: Date,
-        required: false,
-    },
-    bdropDate: {
-        type: Date,
-        required: true,
-    },
+const BookformSchema = new Schema({
+    // bpickup: {
+    //     type: String,
+    //     required: false,
+    // },
+    // bdrop: {
+    //     type: String,
+    //     required: false,
+    // },
+    // bpickDate: {
+    //     type: Date,
+    //     required: false,
+    // },
+    // bdropDate: {
+    //     type: Date,
+    //     required: false,
+    // },
 
     bname: {
         type: String,
@@ -44,8 +45,13 @@ const BookformSchema = new mongoose.Schema({
     },
 
     paymentId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Payment',  // Assuming your Payment model is named 'Payment'
+        type: Schema.Types.ObjectId,
+        ref: 'Payment',  
+        required: false,
+      },
+      reservationId: {
+        type: Schema.Types.ObjectId,
+        ref: 'Reservation', 
         required: false,
       },
       
@@ -60,9 +66,9 @@ const BookformSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['PENDING', 'ACCEPTED', 'DELIVERED', 'COMPLETED'],
-        default: 'PENDING'
-    }
+        enum: ['PENDING', 'DELIVERED', 'COMPLETED'],
+        default: 'PENDING',
+    },
 
 
 

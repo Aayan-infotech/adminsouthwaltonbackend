@@ -4,7 +4,7 @@ const {
   getFilteredBookings ,
   updateBookingStatus,
   createDriver,
-  assignDriver,
+  assignDriverToBooking,
   getAllDrivers,
   getDriverBookings,
   getDriverById,
@@ -29,13 +29,13 @@ router.get('/image/:filename', getImage);
 router.post('/login', verifyAdmin, driverLogin);
 
 // Assign driver to a booking
-router.put('/assignDriver/:id', assignDriver);
+router.post('/assignDriver', assignDriverToBooking);
 
 // Get bookings assigned to a driver
 router.get('/:driverId/bookings', getDriverBookings);
 
-router.put('/:driverId/bookings/:bookingId', updateBookingStatus);
-router.get('/:driverId/bookings', getFilteredBookings);
+router.put('/bookings/update-status', updateBookingStatus);
+router.get('get/filtered-bookings', getFilteredBookings);
 
 // Driver Logout
 router.post('/logout', driverLogout);
