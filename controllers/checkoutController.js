@@ -84,15 +84,22 @@ const getAllBookforms = async (req, res) => {
   
   
   // Get a specific booking form by ID
-const getBookformById = async (req, res) => {
+  const getBookformById = async (req, res) => {
     try {
-        const bookform = await Bookform.findById(req.params.id);
-        if (!bookform) return res.status(404).json({ message: 'Booking form not found' });
-        res.json(bookform);
+        const bookform = await Bookform.findById(req.params.id).populate('reservationId');
+        if (!bookform) {
+            return res.status(404).json({ message: 'Booking form not found' });
+        }
+        return res.status(200).json({
+            success: true,
+            message: "Booking found",
+            booking: bookform
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
+
 
 // Update a booking form by ID
 const updateBookform = async (req, res) => {
