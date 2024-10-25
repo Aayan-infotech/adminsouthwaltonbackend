@@ -357,6 +357,7 @@ const getDriverBookings = async (req, res) => {
         // Respond with the driver information and bookings
         res.json({
             success: true,
+            message: "All Booking of this driver",
             driver: {
                 name: driver.name,
                 mobileNumber: driver.mobileNumber,

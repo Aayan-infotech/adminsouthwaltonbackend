@@ -46,18 +46,18 @@ const BookformSchema = new Schema({
 
     paymentId: {
         type: Schema.Types.ObjectId,
-        ref: 'Payment',  
+        ref: 'Payment',
         required: false,
-      },
-      reservationId: {
+    },
+    reservationId: {
         type: Schema.Types.ObjectId,
-        ref: 'Reservation', 
+        ref: 'Reservation',
         required: false,
-      },
-      
-      vehiclesId:{
-        type:String,
-        require:false
+    },
+
+    vehiclesId: {
+        type: String,
+        require: false
     },
     driver: {
         type: mongoose.Schema.Types.ObjectId,
@@ -72,6 +72,6 @@ const BookformSchema = new Schema({
 
 
 
-},{ timestamps: true });
+}, { timestamps: true });
 
 module.exports = mongoose.model('Bookform', BookformSchema);

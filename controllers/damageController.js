@@ -28,8 +28,11 @@ const upload = multer({ storage: storage });
 
 // Create Damage Record
 exports.createDamage = async (req, res) => {
-  // Use the upload middleware to handle file uploads
-  const images = req.files ? req.files.map(file => file.filename) : [];
+  // Base URL for image paths
+  const baseURL = `${req.protocol}://${req.get("host")}/uploads/`;
+
+  // Map file names to full URLs
+  const images = req.files ? req.files.map(file => baseURL + file.filename) : [];
 
   try {
     const { paymentId, damage } = req.body; // Get data from request body
@@ -82,7 +85,7 @@ exports.createDamage = async (req, res) => {
       transactionId, // Get transactionId from payment
       bookingId, // Get bookingId from payment
       damage,
-      images, // Store uploaded images
+      images, // Store uploaded images with URLs
     });
 
     // Save the new damage record
@@ -97,7 +100,7 @@ exports.createDamage = async (req, res) => {
         paymentId: savedDamage.paymentId,
         transactionId: savedDamage.transactionId,
         damage: savedDamage.damage,
-        images: savedDamage.images,
+        images: savedDamage.images, // Full URL paths for images
         bookingDetails: {
           bpickup: bookingDetails.bpickup,
           bdrop: bookingDetails.bdrop,
@@ -125,6 +128,7 @@ exports.createDamage = async (req, res) => {
     });
   }
 };
+
 
 exports.sendDamageReport = async (req, res) => {
   try {
