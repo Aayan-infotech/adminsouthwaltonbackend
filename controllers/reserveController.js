@@ -4,6 +4,7 @@ const Reserve = require('../models/reserveModel');
 const router = express.Router();
 const nodemailer = require('nodemailer');
 const User = require('../models/userModel');
+const Bookform = require('../models/checkoutModel');
 
 // Create a new reservation
 const createReservation = async (req, res) => {
@@ -105,10 +106,39 @@ const updateReservation = async (req, res) => {
     }
 };
 
+// Function to get reservation listing by driver ID
+const getReservationListingByDriverID = async (req, res) => {
+  try {
+    const driverId = req.params.driverId;
+
+    // Find all reservations associated with the provided driver ID
+    const reservations = await Bookform.find({ driver: driverId })
+      .populate('reservationId')
+      .populate('driver')
+      .populate('paymentId')
+      .exec();
+
+    if (reservations.length === 0) {
+      return res.status(404).json({ message: 'No reservations found for this driver' });
+    }
+
+    return res.status(200).json({
+        success: true,
+        message: "Reservations Lisitng",
+        data: reservations
+    });
+  } catch (error) {
+    console.error('Error fetching reservations:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
 module.exports = {
     createReservation,
     getAllReservations,
     acceptReservation,
     getReservationById,
-    updateReservation
+    updateReservation,
+    getReservationListingByDriverID
 };
