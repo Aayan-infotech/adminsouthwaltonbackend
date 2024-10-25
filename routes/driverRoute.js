@@ -35,7 +35,7 @@ router.post('/assignDriver', assignDriverToBooking);
 router.get('/:driverId/bookings', getDriverBookings);
 
 router.put('/bookings/update-status', updateBookingStatus);
-router.get('get/filtered-bookings', getFilteredBookings);
+router.get('/filtered-bookings', getFilteredBookings);
 
 // Driver Logout
 router.post('/logout', driverLogout);

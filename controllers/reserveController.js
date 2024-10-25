@@ -20,7 +20,12 @@ const createReservation = async (req, res) => {
 const getAllReservations = async (req, res) => {
     try {
         const reservations = await Reserve.find();
-        res.status(200).json(reservations);
+       
+        res.json({
+            success: true,
+            message: 'All Reservations',
+            data: reservations,
+          });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
