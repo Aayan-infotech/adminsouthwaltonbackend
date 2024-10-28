@@ -287,7 +287,7 @@ exports.getDamageById = async (req, res) => {
       });
     }
 
-    // Fetch booking details
+    
     const bookingDetails = await Bookform.findById(damage.bookingId);
     const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
