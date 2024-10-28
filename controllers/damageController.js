@@ -162,7 +162,6 @@ exports.sendDamageReport = async (req, res) => {
     doc.text(`Transaction ID: ${damage.transactionId}`);
     doc.moveDown();
 
-    // Add Booking Details
     doc.fontSize(14).text('Booking Details', { underline: true });
     doc.fontSize(12).text(`Pickup Location: ${bookingDetails.bpickup}`);
     doc.text(`Drop Location: ${bookingDetails.bdrop}`);
@@ -181,7 +180,6 @@ exports.sendDamageReport = async (req, res) => {
     doc.text(`Price: ${vehicleDetails.vprice}`);
     doc.moveDown();
 
-    // Finish writing the PDF
     doc.end();
 
     // When the PDF has been fully written to the file, respond with the PDF
