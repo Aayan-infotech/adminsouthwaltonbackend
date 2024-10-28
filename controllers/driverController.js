@@ -249,7 +249,7 @@ const driverLogin = async (req, res, next) => {
 const driverLogout = (req, res, next) => {
     try {
         res.clearCookie("access_token");
-        res.status(200).json({ message: "Logged out successfully" });
+        res.status(200).json({status:200, message: "Logged out successfully" });
     } catch (error) {
         console.error(error);
         return next(createError(500, "Internal Server Error"));
