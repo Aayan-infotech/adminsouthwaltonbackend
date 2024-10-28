@@ -294,7 +294,6 @@ exports.getDamageById = async (req, res) => {
     // Fetch payment details to retrieve reservation string
     const paymentDetails = await Payment.findById(damage.paymentId);
 
-    // Retrieve reservation details based on the string in `reservation` field of `Payment`
     const reservationDetails = paymentDetails && paymentDetails.reservation
       ? await Reserve.findOne({ _id: paymentDetails.reservation })
       : null;
