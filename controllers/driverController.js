@@ -174,8 +174,6 @@ const updateDriverById = async (req, res, next) => {
         updateDriver.address = address || updateDriver.address;
         updateDriver.roles = roles || updateDriver.roles;
         updateDriver.image = image;
-
-        // Save updated driver
         const savedDriver = await updateDriver.save();
         return next(createSuccess(200, "Driver Details Updated Successfully", savedDriver));
 
