@@ -5,6 +5,8 @@ const Payment = require("../models/PaymentModel");
 const Bookform = require('../models/checkoutModel');
 const Vehicle = require('../models/vehicleModel');
 const Damage = require("../models/damageModel");
+const Reserve = require('../models/reserveModel');
+
 // const upload = require("../middleware/upload")
 const multer = require('multer');
 
@@ -28,20 +30,17 @@ const upload = multer({ storage: storage });
 
 // Create Damage Record
 exports.createDamage = async (req, res) => {
-  // Base URL for image paths
   const baseURL = `${req.protocol}://${req.get("host")}/uploads/`;
 
-  // Map file names to full URLs
-  const images = req.files ? req.files.map(file => baseURL + file.filename) : [];
+  // Map file names to an array of objects with a `url` key
+  const images = req.files ? req.files.map(file => ({ url: baseURL + file.filename })) : [];
 
   try {
-    const { paymentId, damage } = req.body; // Get data from request body
-    const objectIdPaymentId = new ObjectId(paymentId); // Correctly create an ObjectId instance
+    const { paymentId, damage } = req.body;
+    const objectIdPaymentId = new ObjectId(paymentId);
 
     // Fetch the payment record using paymentId
     const payment = await Payment.findById(objectIdPaymentId);
-    console.log('Fetched Payment:', payment); // Log the fetched payment
-
     if (!payment) {
       return res.status(404).json({
         success: false,
@@ -49,10 +48,8 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    const { bookingId, transactionId } = payment; // Destructure bookingId and transactionId from payment
-    console.log('Booking ID:', bookingId); // Log the bookingId
+    const { bookingId, transactionId } = payment;
 
-    // Ensure bookingId is defined
     if (!bookingId) {
       return res.status(400).json({
         success: false,
@@ -60,7 +57,6 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch the booking details using bookingId
     const bookingDetails = await Bookform.findById(bookingId);
     if (!bookingDetails) {
       return res.status(404).json({
@@ -69,8 +65,7 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch vehicle details using vehiclesId from booking details
-    const vehicleId = bookingDetails.vehiclesId; // Assuming vehiclesId is a field in the booking model
+    const vehicleId = bookingDetails.vehiclesId;
     const vehicleDetails = await Vehicle.findById(vehicleId);
     if (!vehicleDetails) {
       return res.status(404).json({
@@ -79,19 +74,17 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Create a new Damage record without the reason field
+    // Create a new Damage record with `images` as an array of objects
     const newDamage = new Damage({
-      paymentId, // Store paymentId reference
-      transactionId, // Get transactionId from payment
-      bookingId, // Get bookingId from payment
+      paymentId,
+      transactionId,
+      bookingId,
       damage,
-      images, // Store uploaded images with URLs
+      images,
     });
 
-    // Save the new damage record
     const savedDamage = await newDamage.save();
 
-    // Respond with the required fields including booking and vehicle details
     res.status(201).json({
       success: true,
       message: 'Damage record created successfully',
@@ -100,12 +93,8 @@ exports.createDamage = async (req, res) => {
         paymentId: savedDamage.paymentId,
         transactionId: savedDamage.transactionId,
         damage: savedDamage.damage,
-        images: savedDamage.images, // Full URL paths for images
+        images: savedDamage.images,  // Now this should display each image URL under `url`
         bookingDetails: {
-          bpickup: bookingDetails.bpickup,
-          bdrop: bookingDetails.bdrop,
-          bpickDate: bookingDetails.bpickDate,
-          bdropDate: bookingDetails.bdropDate,
           bname: bookingDetails.bname,
           bphone: bookingDetails.bphone,
           bemail: bookingDetails.bemail,
@@ -113,9 +102,9 @@ exports.createDamage = async (req, res) => {
           baddressh: bookingDetails.baddressh,
         },
         vehicleDetails: {
-          vname: vehicleDetails.vname, // Vehicle name
-          vseats: vehicleDetails.vseats, // Number of seats
-          vprice: vehicleDetails.vprice, // Vehicle price
+          vname: vehicleDetails.vname,
+          vseats: vehicleDetails.vseats,
+          vprice: vehicleDetails.vprice,
         },
       },
     });
@@ -128,6 +117,8 @@ exports.createDamage = async (req, res) => {
     });
   }
 };
+
+
 
 
 exports.sendDamageReport = async (req, res) => {
@@ -217,31 +208,56 @@ exports.getDamages = async (req, res) => {
     // Fetch all damage records
     const damages = await Damage.find();
 
-    // Populate booking and vehicle details for each damage record
-    const damageDetails = await Promise.all(damages.map(async (damage) => {
-      const bookingDetails = await Bookform.findById(damage.bookingId);
-      const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
+    // Populate booking, vehicle, and reservation details for each damage record
+    const damageDetails = await Promise.all(
+      damages.map(async (damage) => {
+        const bookingDetails = await Bookform.findById(damage.bookingId);
+        const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
-      return {
-        ...damage.toObject(),
-        bookingDetails: bookingDetails ? {
-          bpickup: bookingDetails.bpickup,
-          bdrop: bookingDetails.bdrop,
-          bpickDate: bookingDetails.bpickDate,
-          bdropDate: bookingDetails.bdropDate,
-          bname: bookingDetails.bname,
-          bphone: bookingDetails.bphone,
-          bemail: bookingDetails.bemail,
-          baddress: bookingDetails.baddress,
-          baddressh: bookingDetails.baddressh,
-        } : null,
-        vehicleDetails: vehicleDetails ? {
-          vname: vehicleDetails.vname,
-          vseats: vehicleDetails.vseats,
-          vprice: vehicleDetails.vprice,
-        } : null,
-      };
-    }));
+        // Fetch payment details
+        const paymentDetails = await Payment.findById(damage.paymentId);
+
+        // Retrieve reservation details based on the string in `reservation` field of `Payment`
+        const reservationDetails = paymentDetails && paymentDetails.reservation
+          ? await Reserve.findOne({ _id: paymentDetails.reservation })
+          : null;
+
+        return {
+          ...damage.toObject(),
+          bookingDetails: bookingDetails
+            ? {
+                bname: bookingDetails.bname,
+                bphone: bookingDetails.bphone,
+                bemail: bookingDetails.bemail,
+                baddress: bookingDetails.baddress,
+                baddressh: bookingDetails.baddressh,
+              }
+            : null,
+          vehicleDetails: vehicleDetails
+            ? {
+                vname: vehicleDetails.vname,
+                vseats: vehicleDetails.vseats,
+                vprice: vehicleDetails.vprice,
+              }
+            : null,
+          reservationDetails: reservationDetails
+            ? {
+                pickup: reservationDetails.pickup,
+                drop: reservationDetails.drop,
+                pickdate: reservationDetails.pickdate,
+                dropdate: reservationDetails.dropdate,
+                days: reservationDetails.days,
+                vehicleid: reservationDetails.vehicleid,
+                transactionid: reservationDetails.transactionid,
+                booking: reservationDetails.booking,
+                reservation: reservationDetails.reservation,
+                userId: reservationDetails.userId,
+                accepted: reservationDetails.accepted,
+              }
+            : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
@@ -275,16 +291,20 @@ exports.getDamageById = async (req, res) => {
     const bookingDetails = await Bookform.findById(damage.bookingId);
     const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
+    // Fetch payment details to retrieve reservation string
+    const paymentDetails = await Payment.findById(damage.paymentId);
+
+    // Retrieve reservation details based on the string in `reservation` field of `Payment`
+    const reservationDetails = paymentDetails && paymentDetails.reservation
+      ? await Reserve.findOne({ _id: paymentDetails.reservation })
+      : null;
+
     res.json({
       success: true,
       message: 'Damage record retrieved successfully',
       data: {
         ...damage.toObject(),
         bookingDetails: bookingDetails ? {
-          bpickup: bookingDetails.bpickup,
-          bdrop: bookingDetails.bdrop,
-          bpickDate: bookingDetails.bpickDate,
-          bdropDate: bookingDetails.bdropDate,
           bname: bookingDetails.bname,
           bphone: bookingDetails.bphone,
           bemail: bookingDetails.bemail,
@@ -296,6 +316,19 @@ exports.getDamageById = async (req, res) => {
           vseats: vehicleDetails.vseats,
           vprice: vehicleDetails.vprice,
         } : null,
+        reservationDetails: reservationDetails ? {
+          pickup: reservationDetails.pickup,
+          drop: reservationDetails.drop,
+          pickdate: reservationDetails.pickdate,
+          dropdate: reservationDetails.dropdate,
+          days: reservationDetails.days,
+          vehicleid: reservationDetails.vehicleid,
+          transactionid: reservationDetails.transactionid,
+          booking: reservationDetails.booking,
+          reservation: reservationDetails.reservation,
+          userId: reservationDetails.userId,
+          accepted: reservationDetails.accepted,
+        } : null,
       },
     });
   } catch (err) {
@@ -305,6 +338,7 @@ exports.getDamageById = async (req, res) => {
     });
   }
 };
+
 
 
 // Update Damage Record
