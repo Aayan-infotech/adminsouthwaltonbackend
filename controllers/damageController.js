@@ -203,7 +203,7 @@ exports.sendDamageReport = async (req, res) => {
 // Get all 
 exports.getDamages = async (req, res) => {
   try {
-    // Fetch all damage records
+    
     const damages = await Damage.find();
 
     // Populate booking, vehicle, and reservation details for each damage record
