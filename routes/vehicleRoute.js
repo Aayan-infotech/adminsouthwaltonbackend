@@ -17,7 +17,7 @@ const upload = multer({ storage: storage });
 
 // Routes
 router.get('/', vehicleController.getVehicles);
-router.post('/', upload.single('image'), vehicleController.createVehicle); 
+router.post('/add', upload.single('image'), vehicleController.createVehicle); 
 router.put('/:id', upload.single('image'), vehicleController.updateVehicle); 
 router.delete('/:id', vehicleController.deleteVehicle);
 

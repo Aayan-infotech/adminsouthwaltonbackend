@@ -15,7 +15,7 @@ const dateSchema = new mongoose.Schema({
     },
     status:{ 
       type: String,
-      enum: ['PENDING', 'DELIVERED', 'COMPLETED'],
+      enum: ['PENDING', 'DELIVERED', 'COMPLETED', 'NO DAMAGE'],
       default: 'PENDING'
     },
     pickDate:{ type:Date, required:false },
