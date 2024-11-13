@@ -22,6 +22,7 @@ const damageRoute = require('./routes/damageRoute');
 const reserveRoute = require('./routes/reserveRoute');
 
 const PaymentRoute = require('./routes/PaymentRoute');
+const seasonRoute = require('./routes/seasonRoute');
 
 const signRoutes = require('./routes/signRoute');
 const feedbackRoute = require('./routes/feedbackRoute');
@@ -58,7 +59,7 @@ app.use('/api/task', taskRoute);
 app.use('/api/damage', damageRoute);
 app.use('/api/reserve', reserveRoute);
 app.use('/api/pay', PaymentRoute);
-
+app.use('/api/seasons', seasonRoute);
 app.use('/api/sign', signRoutes);
 app.use('/api/feedback', feedbackRoute);
 // Static file serving for image uploads

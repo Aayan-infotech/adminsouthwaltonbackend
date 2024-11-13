@@ -1,114 +1,94 @@
-
 const Vehicle = require("../models/vehicleModel");
-const upload = require("../middleware/multer"); // Importing upload middleware
 
 // Create 
 exports.createVehicle = async (req, res) => {
-  const { vname, vseats, vprice } = req.body; // vprice should be an object
-  const image = req.file ? req.file.filename : null;
-
-  const vehicleEntry = new Vehicle({
-    vname,
-    vseats,
-    vprice, // vprice is an object with monthly prices
-    image,
-  });
+  const { vname, passenger, vprice } = req.body;
+  const images = req.fileLocations;
 
   try {
+    if (!vname || !passenger || !vprice) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const latestVehicle = await Vehicle.findOne().sort({ createdAt: -1 }).select('vehicleID');
+    const newIdNumber = latestVehicle && latestVehicle.vehicleID ? parseInt(latestVehicle.vehicleID.split('-')[1]) + 1 : 1000000000;
+    const vehicleID = `VEH-${newIdNumber}`;
+
+    const vehicleEntry = new Vehicle({
+      vehicleID,
+      vname,
+      passenger,
+      vprice: JSON.parse(vprice), 
+      image: images,
+    });
+
     const newVehicle = await vehicleEntry.save();
-    res.status(201).json(newVehicle);
+
+    res.status(201).json({
+      id: newVehicle._id,
+      vehicleID: newVehicle.vehicleID,
+      vname: newVehicle.vname,
+      passenger: newVehicle.passenger,
+      vprice: newVehicle.vprice,
+      image: newVehicle.image,
+      createdAt: newVehicle.createdAt,
+      updatedAt: newVehicle.updatedAt,
+    });
   } catch (err) {
+    console.error("Error creating vehicle:", err);
     res.status(400).json({ message: err.message });
   }
 };
 
-// Update Vehicle
+// Update 
 exports.updateVehicle = async (req, res) => {
-  try {
-    // Prepare the update data
-    const updateData = {
-      vname: req.body.vname,
-      vseats: req.body.vseats,
-      vprice: req.body.vprice, // Ensure this is an object with monthly prices
-    };
+  const { vname, passenger, vprice } = req.body;
+  const updateData = { vname, passenger, vprice: JSON.parse(vprice) }; 
 
-    // Check if a new image file is uploaded
-    if (req.file) {
-      updateData.image = req.file.filename; // Update image if new one is uploaded
+  try {
+    const existingVehicle = await Vehicle.findById(req.params.id);
+    if (!existingVehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    // Find and update the vehicle by ID
-    const updatedVehicle = await Vehicle.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true } // Return the updated document
-    );
 
-    // Handle case where vehicle is not found
+    if (req.fileLocations && req.fileLocations.length > 0) {
+      updateData.image = req.fileLocations;
+    } else {
+      updateData.image = existingVehicle.image;
+    }
+
+    const updatedVehicle = await Vehicle.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updatedVehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    // Respond with the updated vehicle data
     res.json(updatedVehicle);
   } catch (err) {
-    console.error("Update Error:", err);
+    console.error("Error updating vehicle:", err);
     res.status(400).json({ message: err.message });
   }
 };
 
-
-// Get Vehicles (with full image URL)
+// getAll
 exports.getVehicles = async (req, res) => {
   try {
     let vehicles = await Vehicle.find();
 
-    vehicles = vehicles.map(vehicle => {
-      return {
-        ...vehicle._doc,
-        image: vehicle.image
-          ? `${req.protocol}://${req.get("host")}/uploads/${vehicle.image}`
-          : null,
-      };
-    });
+    // Format the response if needed
+    const formattedVehicles = vehicles.map(vehicle => ({
+      ...vehicle.toObject(),
+      image: vehicle.image,
+    }));
 
-    res.json(vehicles);
+    res.status(200).json(formattedVehicles);
   } catch (err) {
+    console.error("Error fetching vehicles:", err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// Update Vehicle
-exports.updateVehicle = async (req, res) => {
-  try {
-    const updateData = {
-      vname: req.body.vname,
-      vseats: req.body.vseats,
-      vprice: req.body.vprice,
-    };
-
-    if (req.file) {
-      updateData.image = req.file.filename;
-    }
-
-    const updatedVehicle = await Vehicle.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
-
-    if (!updatedVehicle) {
-      return res.status(404).json({ message: "Vehicle not found" });
-    }
-
-    res.json(updatedVehicle);
-  } catch (err) {
-    console.error("Update Error:", err);
-    res.status(400).json({ message: err.message });
-  }
-};
-
-// Delete Vehicle
+// Delete 
 exports.deleteVehicle = async (req, res) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
