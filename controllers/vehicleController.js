@@ -123,6 +123,7 @@ exports.getVehiclesBySeasonAndDay = async (req, res) => {
       season: season,  
       day: day,
       price: vehicle.vprice[0][season][day],  
+      image: vehicle.image,
     }));
 
     res.status(200).json(formattedVehicles);
@@ -159,6 +160,7 @@ exports.getVehiclePrice = async (req, res) => {
         day: day,
         price: price,
         passenger: vehicle.passenger,
+        image: vehicle.image,
       });
     } else {
       return res.status(404).json({ message: "Price not set for the selected season and day" });
