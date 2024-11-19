@@ -85,7 +85,7 @@ exports.createDamage = async (req, res) => {
 
     const savedDamage = await newDamage.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'Damage record created successfully',
       data: {
@@ -126,7 +126,7 @@ exports.sendDamageReport = async (req, res) => {
     const { damageId } = req.body;
 
     // Find the damage record in the database
-    const damage = await Damage.findById(damageId).lean();  // Use lean to get a plain JS object
+    const damage = await Damage.findById(damageId).lean();
 
     if (!damage) {
       return res.status(404).json({ success: false, message: 'Damage record not found' });
@@ -134,62 +134,67 @@ exports.sendDamageReport = async (req, res) => {
 
     // Fetch related booking and vehicle details for the report
     const bookingDetails = await Bookform.findById(damage.bookingId);
-    const vehicleDetails = await Vehicle.findById(bookingDetails.vehiclesId);
+    const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
+    const paymentDetails = await Payment.findById(damage.paymentId);
+
+    // Retrieve reservation details if it exists in the payment record
+    const reservationDetails = paymentDetails && paymentDetails.reservation
+      ? await Reserve.findById(paymentDetails.reservation)
+      : null;
 
     // Create the PDF document
     const doc = new PDFDocument();
-
-    // Temporary path to store the generated PDF
     const pdfPath = path.join(__dirname, 'damage-report.pdf');
     const writeStream = fs.createWriteStream(pdfPath);
 
     doc.pipe(writeStream);
 
-    // Add content to the PDF (customize as per your needs)
+    // Add content to the PDF
     doc.fontSize(16).text('Damage Report', { align: 'center' });
     doc.moveDown();
 
-    // Add Damage Record Details
+    // Damage Details
     doc.fontSize(12).text(`Damage ID: ${damage._id}`);
-    // doc.text(`Reported By: ${damage.reportedBy || 'N/A'}`);
-    // doc.text(`Description: ${damage.damage}`);
-    // doc.text(`Status: ${damage.status || 'N/A'}`);
     doc.moveDown();
 
-    // Add Payment Details
+    // Payment Details
     doc.fontSize(14).text('Payment Details', { underline: true });
-    doc.fontSize(12).text(`Payment ID: ${damage.paymentId}`);
-    doc.text(`Transaction ID: ${damage.transactionId}`);
+    doc.fontSize(12).text(`Payment ID: ${damage.paymentId || 'N/A'}`);
+    doc.text(`Transaction ID: ${damage.transactionId || 'N/A'}`);
     doc.moveDown();
 
+    // Booking Details
     doc.fontSize(14).text('Booking Details', { underline: true });
-    doc.fontSize(12).text(`Pickup Location: ${bookingDetails.bpickup}`);
-    doc.text(`Drop Location: ${bookingDetails.bdrop}`);
-    doc.text(`Pickup Date: ${bookingDetails.bpickDate}`);
-    doc.text(`Drop Date: ${bookingDetails.bdropDate}`);
-    doc.text(`Customer Name: ${bookingDetails.bname}`);
-    doc.text(`Phone: ${bookingDetails.bphone}`);
-    doc.text(`Email: ${bookingDetails.bemail}`);
-    doc.text(`Address: ${bookingDetails.baddress}, ${bookingDetails.baddressh}`);
+    doc.fontSize(12).text(`Customer Name: ${bookingDetails?.bname || 'N/A'}`);
+    doc.text(`Phone: ${bookingDetails?.bphone || 'N/A'}`);
+    doc.text(`Email: ${bookingDetails?.bemail || 'N/A'}`);
+    doc.text(`Address: ${bookingDetails?.baddress || 'N/A'}, ${bookingDetails?.baddressh || 'N/A'}`);
     doc.moveDown();
 
-    // Add Vehicle Details
+    // Reservation Details
+    doc.fontSize(14).text('Reservation Details', { underline: true });
+    doc.fontSize(12).text(`Pickup Location: ${reservationDetails?.pickup || 'N/A'}`);
+    doc.text(`Drop Location: ${reservationDetails?.drop || 'N/A'}`);
+    doc.text(`Pickup Date: ${reservationDetails?.pickdate || 'N/A'}`);
+    doc.text(`Drop Date: ${reservationDetails?.dropdate || 'N/A'}`);
+    doc.moveDown();
+
+    // Vehicle Details
     doc.fontSize(14).text('Vehicle Details', { underline: true });
-    doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails.vname}`);
-    doc.text(`Seats: ${vehicleDetails.vseats}`);
-    doc.text(`Price: ${vehicleDetails.vprice}`);
+    doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails?.vname || 'N/A'}`);
+    doc.text(`Seats: ${vehicleDetails?.vseats || 'N/A'}`);
+    doc.text(`Price: ${vehicleDetails?.vprice || 'N/A'}`);
     doc.moveDown();
 
     doc.end();
 
-    // When the PDF has been fully written to the file, respond with the PDF
+    // Send the PDF
     writeStream.on('finish', () => {
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename=damage-report.pdf');
       const pdfFileStream = fs.createReadStream(pdfPath);
       pdfFileStream.pipe(res);
 
-      // Optionally, delete the PDF after sending to save space
       pdfFileStream.on('end', () => {
         fs.unlinkSync(pdfPath);
       });
@@ -200,10 +205,11 @@ exports.sendDamageReport = async (req, res) => {
   }
 };
 
+
 // Get all 
 exports.getDamages = async (req, res) => {
   try {
-    // Fetch all damage records
+    
     const damages = await Damage.find();
 
     // Populate booking, vehicle, and reservation details for each damage record
