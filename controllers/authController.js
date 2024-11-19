@@ -6,7 +6,7 @@ const createSuccess = require('../middleware/success');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
-// Signup
+
 const signup = async (req, res, next) => {
   try {
     const { name, mobileNumber, email, password } = req.body;
