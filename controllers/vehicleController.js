@@ -172,5 +172,3 @@ exports.getVehiclePrice = async (req, res) => {
 };
 
 
-
-
