@@ -21,6 +21,38 @@ exports.createSeason = async (req, res) => {
     }
 };
 
+// add a new entry
+exports.addSeasonEntry = async (req, res) => {
+    const { seasonType, month, dateFrom, dateTo } = req.body;
+    const { seasonId } = req.params;
+
+    try {
+        
+        const season = await Season.findById(seasonId);
+        if (!season) {
+            return res.status(404).json({ message: 'Season not found' });
+        }
+
+        if (!['offSeason', 'secondarySeason', 'peakSeason'].includes(seasonType)) {
+            return res.status(400).json({ message: 'Invalid season type' });
+        }
+
+    
+        const newEntry = {
+            month,
+            dateFrom,
+            dateTo
+        };
+
+        season[seasonType].push(newEntry);
+        await season.save();
+
+        res.status(201).json({ message: 'Season entry added successfully', season });
+    } catch (error) {
+        res.status(500).json({ message: 'Error adding season entry', error: error.message });
+    }
+};
+
 
 // GetAll
 exports.getAllSeasons = async (req, res) => {

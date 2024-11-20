@@ -5,7 +5,7 @@ const damageSchema = new mongoose.Schema({
   paymentId: { type: String, required: false, },
   bookingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bookform', // Ensure this matches your booking model
+    ref: 'Bookform', 
     required: true,
   },
   transactionId: { type: String, required: true, },
