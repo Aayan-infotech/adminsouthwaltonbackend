@@ -112,7 +112,7 @@ exports.getVehiclesBySeasonAndDay = async (req, res) => {
 
   try {
     const vehicles = await Vehicle.find({
-      [`vprice.${season}.${day}`]: { $exists: true },
+      [`vprice.${season}.oneDay`]: { $exists: true },
     });
 
     const formattedVehicles = vehicles.map(vehicle => ({

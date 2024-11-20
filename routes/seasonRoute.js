@@ -11,8 +11,8 @@ router.get('/', seasonController.getAllSeasons);
 
 router.get('/:id', seasonController.getSeasonById);
 
-router.put('/:seasonId/entry/:entryId', seasonController.updateSeasonEntry);
+router.put('/:seasonId/:entryId', seasonController.updateSeasonEntry);
 
-router.delete('/:seasonId/entry/:entryId', seasonController.deleteSeasonEntry);
+router.delete('/:seasonId/:seasonType/:entryId', seasonController.deleteSeasonEntry);
 
 module.exports = router;

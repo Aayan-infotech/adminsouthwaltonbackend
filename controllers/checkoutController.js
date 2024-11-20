@@ -16,7 +16,7 @@ const createBookform = async (req, res) => {
     }
 };
 
-// Get all booking forms
+// Get all 
 const getAllBookforms = async (req, res) => {
     try {
       const payments = await Payment.find();

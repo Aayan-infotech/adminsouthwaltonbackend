@@ -86,7 +86,7 @@ exports.getSeasonById = async (req, res) => {
     }
 };
 
-// Update season entry
+//update
 exports.updateSeasonEntry = async (req, res) => {
     const { seasonType, month, dateFrom, dateTo } = req.body;
     const { seasonId, entryId } = req.params;
@@ -104,14 +104,19 @@ exports.updateSeasonEntry = async (req, res) => {
             return res.status(400).json({ message: `Invalid season type. Must be one of: ${validSeasonTypes.join(', ')}` });
         }
 
-        // Find the entry to update
+        // Find the index of the entry to update
         const entryIndex = season[seasonType].findIndex(entry => entry._id.toString() === entryId);
         if (entryIndex === -1) {
             return res.status(404).json({ message: 'Season entry not found' });
         }
 
         // Update the entry
-        season[seasonType][entryIndex] = { _id: entryId, month, dateFrom: new Date(dateFrom), dateTo: new Date(dateTo) };
+        season[seasonType][entryIndex] = { 
+            _id: entryId, 
+            month, 
+            dateFrom: new Date(dateFrom), 
+            dateTo: new Date(dateTo)
+        };
 
         // Save the updated season document
         await season.save();
@@ -125,9 +130,9 @@ exports.updateSeasonEntry = async (req, res) => {
     }
 };
 
-// Delete season entry
+//delete    
 exports.deleteSeasonEntry = async (req, res) => {
-    const { seasonType } = req.params;
+    const { seasonType } = req.params; // 'offSeason', 'secondarySeason', or 'peakSeason'
     const { seasonId, entryId } = req.params;
 
     try {
@@ -162,5 +167,6 @@ exports.deleteSeasonEntry = async (req, res) => {
         res.status(500).json({ message: 'Error deleting season entry', error: error.message });
     }
 };
+
 
 
