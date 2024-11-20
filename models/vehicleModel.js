@@ -9,29 +9,29 @@ const vehicleSchema = new mongoose.Schema({
    
       offseason: {
         oneDay: { type: Number },
-        twoDays: { type: Number },
-        threeDays: { type: Number },
-        fourDays: { type: Number },
-        fiveDays: { type: Number },
-        sixDays: { type: Number },
+        twoDay: { type: Number },
+        threeDay: { type: Number },
+        fourDay: { type: Number },
+        fiveDay: { type: Number },
+        sixDay: { type: Number },
         weeklyRental: { type: Number }
       },
       secondaryseason: {
         oneDay: { type: Number },
-        twoDays: { type: Number },
-        threeDays: { type: Number },
-        fourDays: { type: Number },
-        fiveDays: { type: Number },
-        sixDays: { type: Number },
+        twoDay: { type: Number },
+        threeDay: { type: Number },
+        fourDay: { type: Number },
+        fiveDay: { type: Number },
+        sixDay: { type: Number },
         weeklyRental: { type: Number }
       },
       peakseason: {
         oneDay: { type: Number },
-        twoDays: { type: Number },
-        threeDays: { type: Number },
-        fourDays: { type: Number },
-        fiveDays: { type: Number },
-        sixDays: { type: Number },
+        twoDay: { type: Number },
+        threeDay: { type: Number },
+        fourDay: { type: Number },
+        fiveDay: { type: Number },
+        sixDay: { type: Number },
         weeklyRental: { type: Number }
       
     }
