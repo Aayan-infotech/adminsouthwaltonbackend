@@ -105,11 +105,45 @@ const updateReservation = async (req, res) => {
     }
 };
 
+const getReservationListingByDriverID = async (req, res) => {
+    try {
+      const driverId = req.params.driverId;
+  
+      // Find all reservations associated with the provided driver ID
+      const reservations = await Bookform.find({ driver: driverId })
+        .populate({
+          path: 'reservationId',
+          populate: {
+            path: 'userId', // Populate user details in reservationId
+            model: 'User',
+            select: 'fullName email phoneNumber image', // Include image field
+          }
+        })
+        .populate('driver')
+        .populate('paymentId')
+        .exec();
+  
+      if (reservations.length === 0) {
+        return res.status(404).json({ message: 'No reservations found for this driver' });
+      }
+  
+      return res.status(200).json({
+          success: true,
+          message: "Reservations Listing",
+          data: reservations
+      });
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
+
 module.exports = {
     createReservation,
     getAllReservations,
     acceptReservation,
     getReservationById,
-    updateReservation
+    updateReservation,
+    getReservationListingByDriverID
 };
 
