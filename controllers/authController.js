@@ -6,7 +6,7 @@ const createSuccess = require('../middleware/success');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
-// Signup
+
 const signup = async (req, res, next) => {
   try {
     const { name, mobileNumber, email, password } = req.body;
@@ -113,7 +113,7 @@ const sendEmail = async (req, res, next) => {
     user.otp = otp;
     user.otpExpiration = Date.now() + 15 * 60 * 1000;
     await user.save();
-    const ResetPasswordLink = `http://localhost:3000/reset-password?token=${otp}`;
+    const ResetPasswordLink = `http://44.196.192.232:3000/reset-password?token=${otp}`;
 
     const mailTransporter = nodemailer.createTransport({
       service: "gmail",

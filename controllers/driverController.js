@@ -735,23 +735,26 @@ const assignDriverToBooking = async (req, res) => {
     }
   
     try {
-        const booking = await Bookform.findById(bookingId);
+      // Fetch the booking
+      const booking = await Bookform.findById(bookingId);
       if (!booking) {
         return res.status(404).json({ success: false, status: 404, message: 'Booking not found' });
       }
   
+      // Ensure valid paymentId
       if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
         booking.paymentId = paymentId;
       } else {
-        booking.paymentId = null;  
+        booking.paymentId = null;  // Set to null if no valid paymentId
       }
-
+  
+      // Fetch the driver
       const driver = await Driver.findById(driverId);
       if (!driver) {
         return res.status(400).json({ success: false, status: 400, message: 'Driver not found' });
       }
   
-      // Assign 
+      // Assign driver to booking
       booking.driver = driver._id;
       booking.status = 'PENDING';
       await booking.save();
@@ -836,10 +839,10 @@ const getDriverBookings = async (req, res) => {
 
 // Update Booking Status
 const updateBookingStatus = async (req, res) => {
-    const { driverId, bookingId, status } = req.body; 
+    const { driverId, bookingId, status } = req.body; // Get driverId and bookingId from request body
 
     // Validate status
-    const validStatuses = ['PENDING', 'DELIVERED', 'COMPLETED', 'NO DAMAGE'];
+    const validStatuses = ['PENDING', 'DELIVERED', 'COMPLETED'];
     if (!validStatuses.includes(status)) {
         return res.status(400).json({ success: false, message: 'Invalid status value' });
     }
@@ -875,7 +878,7 @@ const updateBookingStatus = async (req, res) => {
 };
 
 const getFilteredBookings = async (req, res, next) => {
-    const { status } = req.query;  
+    const { status } = req.query;  // Status: PENDING, DELIVERED, COMPLETED
     try {
         // Fetch bookings based on status
         const bookings = await Bookform.find({ status }).populate('driver');
