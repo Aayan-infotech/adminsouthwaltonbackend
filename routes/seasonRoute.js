@@ -5,6 +5,9 @@ const seasonController = require('../controllers/seasonController');
 // Create a new season
 router.post('/add', seasonController.createSeason);
 
+// Add a season entry
+router.post('/:seasonId/add-entry', seasonController.addSeasonEntry);
+
 // Get all seasons
 router.get('/', seasonController.getAllSeasons);
 
