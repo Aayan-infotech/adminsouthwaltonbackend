@@ -27,32 +27,39 @@ exports.addSeasonEntry = async (req, res) => {
     const { seasonId } = req.params;
 
     try {
-        
+        // Find season document
         const season = await Season.findById(seasonId);
         if (!season) {
             return res.status(404).json({ message: 'Season not found' });
         }
 
-        if (!['offSeason', 'secondarySeason', 'peakSeason'].includes(seasonType)) {
-            return res.status(400).json({ message: 'Invalid season type' });
+        // Validate season type
+        const validSeasonTypes = ['offSeason', 'secondarySeason', 'peakSeason'];
+        if (!validSeasonTypes.includes(seasonType)) {
+            return res.status(400).json({ message: `Invalid season type. Must be one of: ${validSeasonTypes.join(', ')}` });
         }
 
-    
+        // Create new entry
         const newEntry = {
             month,
-            dateFrom,
-            dateTo
+            dateFrom: new Date(dateFrom),
+            dateTo: new Date(dateTo),
         };
 
+        // Push new entry into the appropriate seasonType array
         season[seasonType].push(newEntry);
+
+        // Save the updated season document
         await season.save();
 
-        res.status(201).json({ message: 'Season entry added successfully', season });
+        res.status(201).json({
+            message: `New entry added to ${seasonType} successfully.`,
+            updatedSeason: season[seasonType], // Return updated array only
+        });
     } catch (error) {
         res.status(500).json({ message: 'Error adding season entry', error: error.message });
     }
 };
-
 
 // GetAll
 exports.getAllSeasons = async (req, res) => {
@@ -114,3 +121,4 @@ exports.deleteSeason = async (req, res) => {
         res.status(500).json({ message: 'Error deleting season', error: error.message });
     }
 };
+
