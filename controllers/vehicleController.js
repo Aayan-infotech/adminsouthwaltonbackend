@@ -154,7 +154,7 @@ exports.getVehiclesBySeasonAndDay = async (req, res) => {
   }
 };
 
-// get price 
+// Get price 
 exports.getVehiclePrice = async (req, res) => {
   const { vehicleID } = req.params;
   const { season, day } = req.query;
@@ -164,21 +164,29 @@ exports.getVehiclePrice = async (req, res) => {
   }
 
   try {
-    const vehicle = await Vehicle.findOne({ _id: vehicleID });
+    const vehicle = await Vehicle.findOne({
+      _id: vehicleID,
+      "vprice.season": season,
+      "vprice.day": day,
+    });
+
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    const price = vehicle.vprice[0]?.[season]?.[day];
+    // Find the price for the specific season and day
+    const priceEntry = vehicle.vprice.find(
+      (price) => price.season === season && price.day === day
+    );
 
-    if (price !== undefined) {
+    if (priceEntry) {
       return res.status(200).json({
         _id: vehicle._id,
         vehicleID: vehicle.vehicleID,
         vname: vehicle.vname,
         season: season,
         day: day,
-        price: price,
+        price: priceEntry.price,
         passenger: vehicle.passenger,
         image: vehicle.image,
       });
@@ -190,5 +198,6 @@ exports.getVehiclePrice = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 
