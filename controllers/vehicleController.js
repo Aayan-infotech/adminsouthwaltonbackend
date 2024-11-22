@@ -1,4 +1,5 @@
 const Vehicle = require("../models/vehicleModel");
+const mongoose = require('mongoose');
 
 // Create 
 exports.createVehicle = async (req, res) => {
@@ -10,6 +11,9 @@ exports.createVehicle = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
+    // Parse vprice from the request body (assuming it's an array of objects)
+    const parsedVPrice = JSON.parse(vprice);
+
     const latestVehicle = await Vehicle.findOne().sort({ createdAt: -1 }).select('vehicleID');
     const newIdNumber = latestVehicle && latestVehicle.vehicleID ? parseInt(latestVehicle.vehicleID.split('-')[1]) + 1 : 1000000000;
     const vehicleID = `VEH-${newIdNumber}`;
@@ -18,7 +22,7 @@ exports.createVehicle = async (req, res) => {
       vehicleID,
       vname,
       passenger,
-      vprice: JSON.parse(vprice), 
+      vprice: parsedVPrice, // Save parsed vprice
       image: images,
     });
 
@@ -43,7 +47,7 @@ exports.createVehicle = async (req, res) => {
 // Update 
 exports.updateVehicle = async (req, res) => {
   const { vname, passenger, vprice } = req.body;
-  const updateData = { vname, passenger, vprice: JSON.parse(vprice) }; 
+  const updateData = { vname, passenger }; // Do not include damagePrice
 
   try {
     const existingVehicle = await Vehicle.findById(req.params.id);
@@ -51,6 +55,12 @@ exports.updateVehicle = async (req, res) => {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
+    // Parse vprice from the request body (assuming it's an array of objects)
+    if (vprice) {
+      updateData.vprice = JSON.parse(vprice); // Update vprice if provided
+    } else {
+      updateData.vprice = existingVehicle.vprice; // Keep existing vprice if not provided
+    }
 
     if (req.fileLocations && req.fileLocations.length > 0) {
       updateData.image = req.fileLocations;
@@ -104,37 +114,48 @@ exports.deleteVehicle = async (req, res) => {
 
 // Get  by Season and Day
 exports.getVehiclesBySeasonAndDay = async (req, res) => {
-  const { season, day } = req.query; 
-  
+  const { season, day } = req.query;
+
+ 
   if (!season || !day) {
     return res.status(400).json({ message: "Season and day are required" });
   }
 
   try {
+   
     const vehicles = await Vehicle.find({
-      [`vprice.${season}.${day}`]: { $exists: true },
+      "vprice.season": season, 
+      "vprice.day": day,       
     });
 
-    const formattedVehicles = vehicles.map(vehicle => ({
-      _id: vehicle._id,
-      vehicleID: vehicle.vehicleID,
-      vname: vehicle.vname,
-      passenger: vehicle.passenger,
-      season: season,  
-      day: day,
-      price: vehicle.vprice[0][season][day],  
-      image: vehicle.image,
-    }));
+    if (vehicles.length === 0) {
+      return res.status(404).json({ message: "No vehicles found for the selected season and day" });
+    }
+
+    const formattedVehicles = vehicles.map(vehicle => {
+      const priceEntry = vehicle.vprice.find(
+        price => price.season === season && price.day === day
+      );
+
+      return {
+        _id: vehicle._id,
+        vname: vehicle.vname,
+        passenger: vehicle.passenger,
+        season,
+        day,
+        price: priceEntry ? priceEntry.price : null,
+        image: vehicle.image,
+      };
+    });
 
     res.status(200).json(formattedVehicles);
   } catch (err) {
     console.error("Error fetching vehicles:", err);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-
-// get price 
+// Get price 
 exports.getVehiclePrice = async (req, res) => {
   const { vehicleID } = req.params;
   const { season, day } = req.query;
@@ -144,21 +165,29 @@ exports.getVehiclePrice = async (req, res) => {
   }
 
   try {
-    const vehicle = await Vehicle.findOne({ _id: vehicleID });
+    const vehicle = await Vehicle.findOne({
+      _id: vehicleID,
+      "vprice.season": season,
+      "vprice.day": day,
+    });
+
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    const price = vehicle.vprice[0]?.[season]?.[day];
+    // Find the price for the specific season and day
+    const priceEntry = vehicle.vprice.find(
+      (price) => price.season === season && price.day === day
+    );
 
-    if (price !== undefined) {
+    if (priceEntry) {
       return res.status(200).json({
         _id: vehicle._id,
         vehicleID: vehicle.vehicleID,
         vname: vehicle.vname,
         season: season,
         day: day,
-        price: price,
+        price: priceEntry.price,
         passenger: vehicle.passenger,
         image: vehicle.image,
       });
@@ -170,5 +199,7 @@ exports.getVehiclePrice = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+
 
 
