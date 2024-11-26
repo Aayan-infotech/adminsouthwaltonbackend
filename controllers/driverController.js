@@ -265,37 +265,33 @@ const assignDriverToBooking = async (req, res) => {
     console.log("Received bookingId:", bookingId);
     console.log("Received paymentId:", paymentId);
   
-    // Validate driverId and bookingId
     if (!mongoose.Types.ObjectId.isValid(driverId) || !mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({ success: false, status: 400, message: 'Invalid Driver or Booking ID' });
     }
   
     try {
-      // Fetch the booking
+    
       const booking = await Bookform.findById(bookingId);
       if (!booking) {
         return res.status(404).json({ success: false, status: 404, message: 'Booking not found' });
       }
   
-      // Ensure valid paymentId
       if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
         booking.paymentId = paymentId;
       } else {
-        booking.paymentId = null;  // Set to null if no valid paymentId
+        booking.paymentId = null;  
       }
   
-      // Fetch the driver
       const driver = await Driver.findById(driverId);
       if (!driver) {
         return res.status(400).json({ success: false, status: 400, message: 'Driver not found' });
       }
   
-      // Assign driver to booking
+   
       booking.driver = driver._id;
       booking.status = 'PENDING';
       await booking.save();
   
-      // Update driver's bookings
       driver.bookings.push(booking._id);
       driver.status = 'Booked';
       await driver.save();

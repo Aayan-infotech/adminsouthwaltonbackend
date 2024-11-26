@@ -66,7 +66,7 @@ exports.createDamage = async (req, res) => {
     }
 
     const vehicleId = bookingDetails.vehiclesId;
-    const vehicleDetails = await Vehicle.findById(vehicleId);
+    const vehicleDetails = await Reserve.findById(vehicleId);
     if (!vehicleDetails) {
       return res.status(404).json({
         success: false,

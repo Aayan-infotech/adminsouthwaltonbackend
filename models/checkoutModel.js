@@ -6,8 +6,8 @@ const CustomerDriverSchema=new Schema ({
         demail: { type: String, required: true },
         dexperience: { type: String, required: true },
         dname: { type: String, required: true },
-        dpolicy: { type: String, required: true }, // Storing image URL or path
-        dlicense: { type: String, required: true }, // Storing image URL or path
+        dpolicy: { type: String, required: true },
+        dlicense: { type: String, required: true }, 
 })
 const BookformSchema = new Schema({
     bname: { type: String, required: true },
