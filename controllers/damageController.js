@@ -9,7 +9,7 @@ const Reserve = require('../models/reserveModel');
 
 const multer = require('multer');
 
-// const nodemailer = require("nodemailer");
+
 const PDFDocument = require("pdfkit");
 const path = require('path');
 const fs = require('fs');
