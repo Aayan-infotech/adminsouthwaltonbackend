@@ -7,7 +7,6 @@ const Vehicle = require('../models/vehicleModel');
 const Damage = require("../models/damageModel");
 const Reserve = require('../models/reserveModel');
 
-// const upload = require("../middleware/upload")
 const multer = require('multer');
 
 // const nodemailer = require("nodemailer");
