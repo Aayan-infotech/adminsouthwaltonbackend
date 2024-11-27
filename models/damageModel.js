@@ -10,7 +10,7 @@ const damageSchema = new mongoose.Schema({
   },
   transactionId: { type: String, required: true, },
   damage: { type: String, default: false },
-  images: [{ url: { type: String } }],
+  images: { type: [String] },
   approvedByAdmin: {
     type: String,
     default: false,
