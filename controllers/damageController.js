@@ -563,12 +563,16 @@ exports.deleteDamage = async (req, res) => {
 
 // Process Refund
 exports.processRefund = async (req, res) => {
-  const { paymentId } = req.body;  // Expecting paymentId in the request body
+  const { id: paymentId } = req.params;
 
   try {
-    // Step 1: Retrieve the payment record from the database using paymentId
-    const payment = await Payment.findOne({ _id: new mongoose.Types.ObjectId(paymentId) });
-
+    if (!mongoose.Types.ObjectId.isValid(paymentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid paymentId format',
+      });
+    }
+    const payment = await Payment.findOne({ _id: paymentId });
     if (!payment) {
       return res.status(404).json({
         success: false,
@@ -576,12 +580,8 @@ exports.processRefund = async (req, res) => {
       });
     }
 
-    // Step 2: Retrieve the transactionId from the payment record
-    const transactionId = payment.transactionId;
-
-    // Step 3: Fetch the paymentIntent details from Stripe using the transactionId
+    const { transactionId } = payment;
     const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
-
     if (!paymentIntent || !paymentIntent.latest_charge) {
       return res.status(404).json({
         success: false,
@@ -589,22 +589,22 @@ exports.processRefund = async (req, res) => {
       });
     }
 
-    const chargeId = paymentIntent.latest_charge;  // Fetch chargeId from paymentIntent
-
-    // Step 4: Process a partial refund (25% in this case)
+    const chargeId = paymentIntent.latest_charge;
+    
     const refund = await stripe.refunds.create({
       charge: chargeId,
-      amount: Math.floor(0.25 * paymentIntent.amount_received),  // 25% refund
+      amount: Math.floor(0.25 * paymentIntent.amount_received),
     });
 
-    // Step 5: Respond with success message
+    console.log(refund)
+
     res.status(200).json({
       success: true,
       message: 'Refund processed successfully',
       refund: refund,
     });
   } catch (error) {
-    // Handle errors
+    console.error('Refund Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to process refund',
