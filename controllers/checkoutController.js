@@ -29,9 +29,7 @@ const getAllBookforms = async (req, res) => {
     const allBookforms = await Promise.all(
       payments.map(async (payment) => {
         try {
-          console.log('Processing Payment ID:', payment._id);
-          console.log('Reservation ID:', payment.reservation);
-          console.log('Booking ID:', payment.bookingId);
+         
 
           // Fetch reservation and booking data
           const reservation = await Reserve.findById(payment.reservation);

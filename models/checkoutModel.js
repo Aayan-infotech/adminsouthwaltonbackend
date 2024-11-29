@@ -18,7 +18,7 @@ const BookformSchema = new Schema({
     baddressh: { type: String, required: false },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment', required: false },
     reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation', required: false },
-    vehiclesId: { type: String, required: false },
+    vehicleId: { type: String, required: false },
     driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', default: null },
     status: { type: String, enum: ['PENDING', 'DELIVERED', 'COMPLETED'], default: 'PENDING' },
 

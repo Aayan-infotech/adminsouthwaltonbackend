@@ -1,4 +1,4 @@
-const mongoose = require("mongoose"); 
+const mongoose = require("mongoose");
 const { Types: { ObjectId } } = mongoose;
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Payment = require("../models/PaymentModel");
@@ -25,7 +25,7 @@ const upload = multer({ storage: storage });
 
 // Create Damage Record
 exports.createDamage = async (req, res) => {
- try {
+  try {
     const { paymentId, damage } = req.body;
     const images = req.fileLocations;
     const objectIdPaymentId = new ObjectId(paymentId);
@@ -56,7 +56,7 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    const {amount,  reservation } = payment;
+    const { amount, reservation } = payment;
     if (!reservation) {
       return res.status(400).json({
         success: false,
@@ -90,7 +90,7 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    
+
     const newDamage = new Damage({
       paymentId,
       transactionId,
@@ -111,7 +111,7 @@ exports.createDamage = async (req, res) => {
         amount,
         transactionId: savedDamage.transactionId,
         damage: savedDamage.damage,
-        images: savedDamage.images, 
+        images: savedDamage.images,
         bookingDetails: {
           bname: bookingDetails.bname,
           bphone: bookingDetails.bphone,
@@ -125,12 +125,12 @@ exports.createDamage = async (req, res) => {
           drop: reservationDetails.drop,
           pickdate: reservationDetails.pickdate,
           dropdate: reservationDetails.dropdate,
-         
+
         },
         vehicleDetails: {
           vname: vehicleDetails.vname,
           vseats: vehicleDetails.passenger,
-         
+
         },
       },
     });
@@ -264,13 +264,13 @@ exports.sendDamageReport = async (req, res) => {
 // getAll
 // exports.getDamages = async (req, res) => {
 //   try {
-    
+
 //     const damages = await Damage.find();
 
 //     const damageDetails = await Promise.all(
 //       damages.map(async (damage) => {
 //         const bookingDetails = await Bookform.findById(damage.bookingId);
-//         const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
+//         const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehicleId) : null;
 
 //         const paymentDetails = await Payment.findById(damage.paymentId);
 
@@ -336,7 +336,6 @@ exports.getDamages = async (req, res) => {
     const damageDetails = await Promise.all(
       damages.map(async (damage) => {
         const bookingDetails = await Bookform.findById(damage.bookingId);
-        const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
         const paymentDetails = await Payment.findById(damage.paymentId);
 
@@ -344,39 +343,49 @@ exports.getDamages = async (req, res) => {
           ? await Reserve.findOne({ _id: paymentDetails.reservation })
           : null;
 
+        const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+
+        // Select specific keys ('vname', 'vseats', 'image')
+        const vehicleDetails = vehicle ? {
+          vname: vehicle.vname,
+          passenger: vehicle.passenger,
+          image: vehicle.image
+        } : null;
+
+
         return {
           ...damage.toObject(),
           images: damage.images, // Adding image handling
           bookingDetails: bookingDetails
             ? {
-                bname: bookingDetails.bname,
-                bphone: bookingDetails.bphone,
-                bemail: bookingDetails.bemail,
-                baddress: bookingDetails.baddress,
-                baddressh: bookingDetails.baddressh,
-              }
+              bname: bookingDetails.bname,
+              bphone: bookingDetails.bphone,
+              bemail: bookingDetails.bemail,
+              baddress: bookingDetails.baddress,
+              baddressh: bookingDetails.baddressh,
+            }
             : null,
           vehicleDetails: vehicleDetails
             ? {
-                vname: vehicleDetails.vname,
-                vseats: vehicleDetails.passenger,
-                vprice: vehicleDetails.vprice,
-              }
+              vname: vehicleDetails.vname,
+              passenger: vehicleDetails.passenger,
+              image: vehicleDetails.image,
+            }
             : null,
           reservationDetails: reservationDetails
             ? {
-                pickup: reservationDetails.pickup,
-                drop: reservationDetails.drop,
-                pickdate: reservationDetails.pickdate,
-                dropdate: reservationDetails.dropdate,
-                days: reservationDetails.days,
-                vehicleid: reservationDetails.vehicleid,
-                transactionid: reservationDetails.transactionid,
-                booking: reservationDetails.booking,
-                reservation: reservationDetails.reservation,
-                userId: reservationDetails.userId,
-                accepted: reservationDetails.accepted,
-              }
+              pickup: reservationDetails.pickup,
+              drop: reservationDetails.drop,
+              pickdate: reservationDetails.pickdate,
+              dropdate: reservationDetails.dropdate,
+              days: reservationDetails.days,
+              vehicleid: reservationDetails.vehicleid,
+              transactionid: reservationDetails.transactionid,
+              booking: reservationDetails.booking,
+              reservation: reservationDetails.reservation,
+              userId: reservationDetails.userId,
+              accepted: reservationDetails.accepted,
+            }
             : null,
         };
       })
@@ -410,9 +419,8 @@ exports.getDamageById = async (req, res) => {
       });
     }
 
-    
+
     const bookingDetails = await Bookform.findById(damage.bookingId);
-    const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
     // Fetch payment details to retrieve reservation string
     const paymentDetails = await Payment.findById(damage.paymentId);
@@ -420,6 +428,14 @@ exports.getDamageById = async (req, res) => {
     const reservationDetails = paymentDetails && paymentDetails.reservation
       ? await Reserve.findOne({ _id: paymentDetails.reservation })
       : null;
+    const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+
+    // Select specific keys ('vname', 'vseats', 'image')
+    const vehicleDetails = vehicle ? {
+      vname: vehicle.vname,
+      passenger: vehicle.passenger,
+      image: vehicle.image
+    } : null;
 
     res.json({
       success: true,
@@ -436,8 +452,8 @@ exports.getDamageById = async (req, res) => {
         } : null,
         vehicleDetails: vehicleDetails ? {
           vname: vehicleDetails.vname,
-          vseats: vehicleDetails.vseats,
-          vprice: vehicleDetails.vprice,
+          passenger: vehicleDetails.passenger,
+          image: vehicleDetails.image,
         } : null,
         reservationDetails: reservationDetails ? {
           pickup: reservationDetails.pickup,
@@ -552,7 +568,7 @@ exports.processRefund = async (req, res) => {
     }
 
     const chargeId = paymentIntent.latest_charge;
-    
+
     const refund = await stripe.refunds.create({
       charge: chargeId,
       amount: Math.floor(0.25 * paymentIntent.amount_received),

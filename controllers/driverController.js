@@ -131,66 +131,45 @@ const getDriverById = async (req, res, next) => {
 
 
 
-// Update Driver By Id
-const updateDriverById = async (req, res, next) => {
+
+  const updateDriverById = async (req, res) => {
     try {
-        const updateDriverId = req.params.id;
-
-        // Check if the ID is a valid ObjectId
-        if (!mongoose.Types.ObjectId.isValid(updateDriverId)) {
-            return next(createError(400, "Invalid Driver ID"));
-        }
-        const { name, mobileNumber, email, password, address, roles } = req.body;
-        
-        // Find driver by id
-        const updateDriver = await Driver.findById(updateDriverId);
-        if (!updateDriver) {
-            return next(createError(404, "Driver Not Found"));
-        }
-
-        // Handle file uploads
-        let image = updateDriver.image; // Retain existing images if no new files uploaded
-        if (req.file) {
-            // Delete old image from the file system if it exists
-            if (image) {
-                const oldFilePath = path.join(__dirname, '../uploads', image.filename);
-                if (fs.existsSync(oldFilePath)) {
-                    fs.unlinkSync(oldFilePath);
-                }
-            }
-
-            // Save new file
-            const file = req.file;
-            const filename = Date.now() + path.extname(file.originalname);
-            const filepath = path.join(__dirname, '../uploads', filename);
-
-            fs.writeFileSync(filepath, file.buffer); // Save the file to the filesystem
-
-            image = {
-                filename,
-                contentType: file.mimetype,
-                url: `${req.protocol}://${req.get('host')}/uploads/${filename}`
-            };
-        }
-
-        // Update driver details
-        updateDriver.name = name || updateDriver.name;
-        updateDriver.mobileNumber = mobileNumber || updateDriver.mobileNumber;
-        updateDriver.email = email || updateDriver.email;
-        updateDriver.password = password || updateDriver.password;
-        updateDriver.address = address || updateDriver.address;
-        updateDriver.roles = roles || updateDriver.roles;
-        updateDriver.image = image;
-
-        // Save updated driver
-        const savedDriver = await updateDriver.save();
-        return next(createSuccess(200, "Driver Details Updated Successfully", savedDriver));
-
+      const { id } = req.params;
+  
+      // Validate driverId
+      if (!id) {
+        return res.status(400).json({ message: 'Driver ID is required' });
+      }
+  
+      // Find the driver
+      const driver = await Driver.findById(id);
+      if (!driver) {
+        return res.status(404).json({ message: 'Driver not found' });
+      }
+  
+      // Update the images if uploaded
+      if (req.fileLocations && req.fileLocations.length > 0) {
+        driver.images = req.fileLocations; // Replace existing images
+      }
+  
+      // Save the updated driver
+      await driver.save();
+  
+      return res.status(200).json({
+        message: 'Driver updated successfully',
+        driver,
+      });
     } catch (error) {
-        console.error(error);  // Log the error for debugging
-        return next(createError(500, "Internal Server Error!"));
+      console.error('Error updating driver:', error.message);
+      return res.status(500).json({
+        message: 'Internal Server Error',
+        error: error.message,
+      });
     }
-};
+  };
+  
+  
+
 
 // Delete Driver By Id
 const deleteDriver = async (req, res, next) => {
