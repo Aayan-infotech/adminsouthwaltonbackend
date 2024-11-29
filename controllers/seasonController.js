@@ -22,21 +22,67 @@ exports.createSeason = async (req, res) => {
 };
 
 // add a new entry
+// exports.addSeasonEntry = async (req, res) => {
+//     const { seasonType, month, dateFrom, dateTo } = req.body;
+//     const { seasonId } = req.params;
+
+//     try {
+//         // Find season document
+//         const season = await Season.findById(seasonId);
+//         if (!season) {
+//             return res.status(404).json({ message: 'Season not found' });
+//         }
+
+//         // Validate season type
+//         const validSeasonTypes = ['offSeason', 'secondarySeason', 'peakSeason'];
+//         if (!validSeasonTypes.includes(seasonType)) {
+//             return res.status(400).json({ message: `Invalid season type. Must be one of: ${validSeasonTypes.join(', ')}` });
+//         }
+
+//         // Create new entry
+//         const newEntry = {
+//             month,
+//             dateFrom: new Date(dateFrom),
+//             dateTo: new Date(dateTo),
+//         };
+
+//         // Push new entry into the appropriate seasonType array
+//         season[seasonType].push(newEntry);
+
+//         // Save the updated season document
+//         await season.save();
+
+//         res.status(201).json({
+//             message: `New entry added to ${seasonType} successfully.`,
+//             updatedSeason: season[seasonType], // Return updated array only
+//         });
+//     } catch (error) {
+//         res.status(500).json({ message: 'Error adding season entry', error: error.message });
+//     }
+// };
+
 exports.addSeasonEntry = async (req, res) => {
     const { seasonType, month, dateFrom, dateTo } = req.body;
     const { seasonId } = req.params;
 
     try {
-        // Find season document
-        const season = await Season.findById(seasonId);
-        if (!season) {
-            return res.status(404).json({ message: 'Season not found' });
-        }
+        let season;
 
         // Validate season type
         const validSeasonTypes = ['offSeason', 'secondarySeason', 'peakSeason'];
         if (!validSeasonTypes.includes(seasonType)) {
             return res.status(400).json({ message: `Invalid season type. Must be one of: ${validSeasonTypes.join(', ')}` });
+        }
+
+        if (seasonId) {
+            // Find season document by ID
+            season = await Season.findById(seasonId);
+            if (!season) {
+                return res.status(404).json({ message: 'Season not found' });
+            }
+        } else {
+            // Create a new season document if seasonId is not provided
+            season = new Season({ offSeason: [], secondarySeason: [], peakSeason: [] });
         }
 
         // Create new entry
@@ -49,17 +95,18 @@ exports.addSeasonEntry = async (req, res) => {
         // Push new entry into the appropriate seasonType array
         season[seasonType].push(newEntry);
 
-        // Save the updated season document
-        await season.save();
+        // Save the updated or new season document
+        const savedSeason = await season.save();
 
         res.status(201).json({
             message: `New entry added to ${seasonType} successfully.`,
-            updatedSeason: season[seasonType], // Return updated array only
+            season: savedSeason, // Return the updated season document
         });
     } catch (error) {
         res.status(500).json({ message: 'Error adding season entry', error: error.message });
     }
 };
+
 
 // GetAll
 exports.getAllSeasons = async (req, res) => {

@@ -48,36 +48,79 @@ const signup = async (req, res, next) => {
 };
 
 // Login
-const login = async (req, res, next) => {
+// const login = async (req, res, next) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     const user = await Auth.findOne({ email }).populate("role");
+
+//     if (!user) {
+//       return next(createError(404, "User Not Found"));
+//     }
+
+//     const isPasswordValid = user.password === password; // Note: Password should be hashed in a real-world scenario
+//     if (!isPasswordValid) {
+//       return next(createError(404, "Password is Incorrect"));
+//     }
+
+//     const token = jwt.sign(
+//       { id: user._id, isAdmin: user.isAdmin, role: user.role },
+//       process.env.JWT_SECRET
+//     );
+
+//     res.cookie("access_token", token, { httpOnly: true })
+//       .status(200)
+//       .json({
+//         token,
+//         status: 200,
+//         message: "Login Success",
+//         data: user
+//       });
+//   } catch (error) {
+//     return next(createError(500, "Something went wrong"));
+//   }
+// };
+
+const login = async (req, res) => {
   try {
+    // Extract email and password from request body
     const { email, password } = req.body;
 
-    const user = await Auth.findOne({ email }).populate("role");
+    // Hardcoded credentials
+    const adminEmail = 'test@gmail.com';
+    const adminPassword = '1234';
 
-    if (!user) {
-      return next(createError(404, "User Not Found"));
+    // Check if the provided email and password match the hardcoded ones
+    if (email !== adminEmail || password !== adminPassword) {
+      return res.status(400).json({ 
+        status: 400,
+        message: 'Invalid email or password' 
+      });
     }
 
-    const isPasswordValid = user.password === password; // Note: Password should be hashed in a real-world scenario
-    if (!isPasswordValid) {
-      return next(createError(404, "Password is Incorrect"));
-    }
-
+    // Create a JWT token (adjust payload and secret as per your application)
     const token = jwt.sign(
-      { id: user._id, isAdmin: user.isAdmin, role: user.role },
-      process.env.JWT_SECRET
+      { userId: 'admin', role: 'admin' }, // Payload
+      process.env.JWT_SECRET, // Secret key
+      { expiresIn: '1h' } // Token expiry
     );
 
+    // Set token as an HTTP-only cookie
     res.cookie("access_token", token, { httpOnly: true })
       .status(200)
       .json({
-        token,
         status: 200,
         message: "Login Success",
-        data: user
+        token,
+        data: { email: adminEmail, role: 'admin' }
       });
   } catch (error) {
-    return next(createError(500, "Something went wrong"));
+    // Handle any unexpected errors
+    res.status(500).json({ 
+      status: 500,
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
 
@@ -113,7 +156,7 @@ const sendEmail = async (req, res, next) => {
     user.otp = otp;
     user.otpExpiration = Date.now() + 15 * 60 * 1000;
     await user.save();
-    const ResetPasswordLink = `http://44.196.192.232:3000/reset-password?token=${otp}`;
+    const ResetPasswordLink = `http://44.196.64.110:3000/reset-password?token=${otp}`;
 
     const mailTransporter = nodemailer.createTransport({
       service: "gmail",

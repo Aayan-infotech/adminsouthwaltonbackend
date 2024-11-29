@@ -6,22 +6,26 @@ const jwt = require('jsonwebtoken');
 const Role = require('../models/roleModel');
 const Bookform = require('../models/checkoutModel');
 const Reservation = require('../models/reserveModel');
+const Payment = require('../models/PaymentModel');
 const createError = require('../middleware/error');
 const createSuccess = require('../middleware/success');
 const path = require('path');
 const fs = require('fs');
 
 
-// To create Driver
+
+
 const createDriver = async (req, res, next) => {
     try {
         const role = await Role.findOne({ role: 'Driver' });
         if (!role) {
             return next(createError(400, "Role not found"));
         }
-        const { name, mobileNumber, email, password, address } = req.body;
 
-        // Check individual required fields
+        const { name, mobileNumber, email, password, address } = req.body;
+        const images = req.fileLocations;
+
+
         if (!name) {
             return next(createError(400, "Name is required"));
         }
@@ -32,62 +36,67 @@ const createDriver = async (req, res, next) => {
             return next(createError(400, "Password is required"));
         }
 
-        // Check if email already exists
+        // Check if the email already exists
         const existingUser = await Driver.findOne({ email });
         if (existingUser) {
             return next(createError(400, "Email already exists"));
         }
 
-        // Check if file is uploaded
-        let image = null;
-        if (req.file) {
-            const file = req.file;
-            const filename = Date.now() + path.extname(file.originalname);
-            const filepath = path.join(__dirname, '../uploads', filename);
-            fs.writeFileSync(filepath, file.buffer); // Save the file to the filesystem
+        const newDriver = new Driver({
+            name,
+            mobileNumber,
+            email,
+            password,
+            address,
+            images, 
+            roles: [role._id],
+        });
 
-            image = {
-                filename,
-                contentType: file.mimetype,
-                url: `${req.protocol}://${req.get('host')}/uploads/${filename}`
-            };
-        }
-        // Create new user with the role assigned
-        const newDriver = new Driver({ name, mobileNumber, email, password, image, address, roles: [role._id] });
         const savedDriver = await newDriver.save();
 
         return next(createSuccess(200, "Driver Registered Successfully", savedDriver));
-    }
-    catch (error) {
-        console.error(error);
+    } catch (error) {
+        console.error("Error creating driver:", error);
         return next(createError(500, "Something went wrong"));
     }
 };
 
-// Get All Drivers
+
+
 const getAllDrivers = async (req, res, next) => {
     try {
         const allDrivers = await Driver.find();  // Ensure Driver model is used
         const driverWithImageURLs = allDrivers.map(driver => {
-            if (driver.image) {
-                // Construct image URL based on driver's image filename
-                const imageURL = `${req.protocol}://${req.get('host')}/api/driver/image/${driver.image.filename}`;
+  
+            if (driver.images && driver.images.length > 0) {
+              
                 return {
                     ...driver._doc,
-                    image: { ...driver.image._doc, url: imageURL }
+                    images: driver.images  
                 };
             } else {
-                return { ...driver._doc, image: null };
+                
+                const { image, ...driverWithoutImages } = driver._doc;
+                return driverWithoutImages;
             }
         });
-        return next(createSuccess(200, "All Drivers", driverWithImageURLs));
+        
+        // Respond with the drivers including the images array (if available)
+        return res.status(200).json({
+            success: true,
+            message: "All Drivers",
+            drivers: driverWithImageURLs
+        });
     } catch (error) {
         console.error(error);
-        return next(createError(500, "Internal Server Error!"));
+        return res.status(500).json({
+            success: false,
+            message: "Internal Server Error!"
+        });
     }
 };
 
-// Get Driver By Id
+
 const getDriverById = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -100,19 +109,14 @@ const getDriverById = async (req, res, next) => {
             });
         }
 
-        // Check if Driver has an image
-        let driverWithImageURLs = { ...driverById._doc };
-        if (driverById.image) {
-            const imageURL = `${req.protocol}://${req.get('host')}/api/driver/image/${driverById.image.filename}`;
-            driverWithImageURLs.image = { ...driverById.image._doc, url: imageURL };
-        } else {
-            driverWithImageURLs.image = null;
-        }
+        // Directly return the images array as is, no need to modify it
+        let driverWithImages = { ...driverById._doc };
+        driverWithImages.images = driverById.images; // Use the 'images' array as is
 
         return res.status(200).json({
             success: true,
             message: "Driver found",
-            driver: driverWithImageURLs
+            driver: driverWithImages
         });
 
     } catch (error) {
@@ -125,66 +129,47 @@ const getDriverById = async (req, res, next) => {
     }
 };
 
-// Update Driver By Id
-const updateDriverById = async (req, res, next) => {
+
+
+
+  const updateDriverById = async (req, res) => {
     try {
-        const updateDriverId = req.params.id;
-
-        // Check if the ID is a valid ObjectId
-        if (!mongoose.Types.ObjectId.isValid(updateDriverId)) {
-            return next(createError(400, "Invalid Driver ID"));
-        }
-        const { name, mobileNumber, email, password, address, roles } = req.body;
-        
-        // Find driver by id
-        const updateDriver = await Driver.findById(updateDriverId);
-        if (!updateDriver) {
-            return next(createError(404, "Driver Not Found"));
-        }
-
-        // Handle file uploads
-        let image = updateDriver.image; // Retain existing images if no new files uploaded
-        if (req.file) {
-            // Delete old image from the file system if it exists
-            if (image) {
-                const oldFilePath = path.join(__dirname, '../uploads', image.filename);
-                if (fs.existsSync(oldFilePath)) {
-                    fs.unlinkSync(oldFilePath);
-                }
-            }
-
-            // Save new file
-            const file = req.file;
-            const filename = Date.now() + path.extname(file.originalname);
-            const filepath = path.join(__dirname, '../uploads', filename);
-
-            fs.writeFileSync(filepath, file.buffer); // Save the file to the filesystem
-
-            image = {
-                filename,
-                contentType: file.mimetype,
-                url: `${req.protocol}://${req.get('host')}/uploads/${filename}`
-            };
-        }
-
-        // Update driver details
-        updateDriver.name = name || updateDriver.name;
-        updateDriver.mobileNumber = mobileNumber || updateDriver.mobileNumber;
-        updateDriver.email = email || updateDriver.email;
-        updateDriver.password = password || updateDriver.password;
-        updateDriver.address = address || updateDriver.address;
-        updateDriver.roles = roles || updateDriver.roles;
-        updateDriver.image = image;
-
-        // Save updated driver
-        const savedDriver = await updateDriver.save();
-        return next(createSuccess(200, "Driver Details Updated Successfully", savedDriver));
-
+      const { id } = req.params;
+  
+      // Validate driverId
+      if (!id) {
+        return res.status(400).json({ message: 'Driver ID is required' });
+      }
+  
+      // Find the driver
+      const driver = await Driver.findById(id);
+      if (!driver) {
+        return res.status(404).json({ message: 'Driver not found' });
+      }
+  
+      // Update the images if uploaded
+      if (req.fileLocations && req.fileLocations.length > 0) {
+        driver.images = req.fileLocations; // Replace existing images
+      }
+  
+      // Save the updated driver
+      await driver.save();
+  
+      return res.status(200).json({
+        message: 'Driver updated successfully',
+        driver,
+      });
     } catch (error) {
-        console.error(error);  // Log the error for debugging
-        return next(createError(500, "Internal Server Error!"));
+      console.error('Error updating driver:', error.message);
+      return res.status(500).json({
+        message: 'Internal Server Error',
+        error: error.message,
+      });
     }
-};
+  };
+  
+  
+
 
 // Delete Driver By Id
 const deleteDriver = async (req, res, next) => {
@@ -265,37 +250,33 @@ const assignDriverToBooking = async (req, res) => {
     console.log("Received bookingId:", bookingId);
     console.log("Received paymentId:", paymentId);
   
-    // Validate driverId and bookingId
     if (!mongoose.Types.ObjectId.isValid(driverId) || !mongoose.Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({ success: false, status: 400, message: 'Invalid Driver or Booking ID' });
     }
   
     try {
-      // Fetch the booking
+    
       const booking = await Bookform.findById(bookingId);
       if (!booking) {
         return res.status(404).json({ success: false, status: 404, message: 'Booking not found' });
       }
   
-      // Ensure valid paymentId
       if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
         booking.paymentId = paymentId;
       } else {
-        booking.paymentId = null;  // Set to null if no valid paymentId
+        booking.paymentId = null;  
       }
   
-      // Fetch the driver
       const driver = await Driver.findById(driverId);
       if (!driver) {
         return res.status(400).json({ success: false, status: 400, message: 'Driver not found' });
       }
   
-      // Assign driver to booking
+   
       booking.driver = driver._id;
       booking.status = 'PENDING';
       await booking.save();
   
-      // Update driver's bookings
       driver.bookings.push(booking._id);
       driver.status = 'Booked';
       await driver.save();
@@ -312,68 +293,69 @@ const getDriverBookings = async (req, res) => {
     const { driverId } = req.params;
 
     try {
-        // Fetch the driver with the provided driverId and populate the bookings
-        const driver = await Driver.findById(driverId).populate('bookings'); // Populate bookings directly
-
+        // Fetch the driver and populate bookings
+        const driver = await Driver.findById(driverId).populate('bookings');
+        
         if (!driver) {
             return res.status(404).json({ success: false, message: 'Driver not found' });
         }
 
-        // Check if there are bookings
-        if (driver.bookings.length === 0) {
+        if (!driver.bookings || driver.bookings.length === 0) {
             return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
         }
 
-        // Map through the bookings to get detailed information
+        // Map bookings to fetch nested payment and reservation details
         const bookingsWithDetails = await Promise.all(driver.bookings.map(async (booking) => {
-            if (!booking) return null; // Skip if booking not found
-            
-            // Fetch the reservation using the reservationId from the booking
-            const reservation = await Reservation.findById(booking.reservationId);
-            
-            // Log the booking and reservation for debugging
-            console.log(`Booking ID: ${booking._id}, Reservation ID: ${booking.reservationId}, Reservation:`, reservation);
+            if (!booking) return null;
 
+            // Fetch payment details using booking.paymentId
+            const payment = await Payment.findById(booking.paymentId);
+            if (!payment) return null;
+
+            const reservation = await Reservation.findById(payment.reservation);
+            if (!reservation) return null;
+
+           
             return {
-                id: booking._id,
-                name: booking.bname, // Ensure these fields exist in the Bookform schema
-                phone: booking.bphone,
-                email: booking.bemail,
-                size: booking.bsize,
-                address: booking.baddress,
-                addressh: booking.baddressh,
-                reservationId: booking.reservationId,
-     
-                pickup: reservation ? reservation.pickup : 'Pickup not specified',
-                drop: reservation ? reservation.drop : 'Drop not specified',
-                pickDate: reservation ? reservation.pickdate : 'Pick Date not specified',
-                dropDate: reservation ? reservation.dropdate : 'Drop Date not specified',
-                status: booking.status,
+                bookingId: booking._id,
+                bname: booking.bname,
+                bemail: booking.bemail,
+                bsize: booking.bsize,
+                baddress: booking.baddress,
+                baddressh: booking.baddressh,
+                paymentId: payment._id,
+                transactionId: payment.transactionId,
+                amount: payment.amount,
+                pickup: reservation.pickup,
+                drop: reservation.drop,
+                pickDate: reservation.pickdate,
+                dropDate: reservation.dropdate,
             };
         }));
 
-        // Filter out any null bookings (in case some were not found)
-        const filteredBookings = bookingsWithDetails.filter(booking => booking !== null);
+        // Remove null or invalid bookings
+        const validBookings = bookingsWithDetails.filter(booking => booking);
 
-        // Respond with the driver information and bookings
+        // Respond with detailed driver and booking information
         res.json({
             success: true,
-            message: "All Booking of this driver",
+            message: 'All bookings of this driver',
             driver: {
                 name: driver.name,
                 mobileNumber: driver.mobileNumber,
                 email: driver.email,
                 address: driver.address,
-                bookings: filteredBookings,
+                bookings: validBookings,
             }
         });
     } catch (error) {
-        console.error("Error fetching driver bookings:", error);
+        console.error('Error fetching driver bookings:', error);
         res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
 };
 
-// Update Booking Status
+
+//update status
 const updateBookingStatus = async (req, res) => {
     const { driverId, bookingId, status } = req.body; // Get driverId and bookingId from request body
 

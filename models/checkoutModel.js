@@ -6,8 +6,8 @@ const CustomerDriverSchema=new Schema ({
         demail: { type: String, required: true },
         dexperience: { type: String, required: true },
         dname: { type: String, required: true },
-        dpolicy: { type: String, required: true }, // Storing image URL or path
-        dlicense: { type: String, required: true }, // Storing image URL or path
+        dpolicy: { type: String, required: true },
+        dlicense: { type: String, required: true }, 
 })
 const BookformSchema = new Schema({
     bname: { type: String, required: true },
@@ -18,7 +18,7 @@ const BookformSchema = new Schema({
     baddressh: { type: String, required: false },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment', required: false },
     reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation', required: false },
-    vehiclesId: { type: String, required: false },
+    vehicleId: { type: String, required: false },
     driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', default: null },
     status: { type: String, enum: ['PENDING', 'DELIVERED', 'COMPLETED'], default: 'PENDING' },
 

@@ -1,4 +1,3 @@
-
 const express = require("express");
 const Driver = require('../models/driverModel');
 const {
@@ -18,11 +17,12 @@ const {
 const { verifyAdmin } = require('../middleware/verifyToken');
 const router = express.Router();
 const upload = require('../middleware/upload');
+const { uploadToS3 } = require("../controllers/commonController"); 
 
-router.post('/add', upload.single('image'), verifyAdmin, createDriver); 
+router.post('/add', uploadToS3, verifyAdmin, createDriver); 
 router.get('/', verifyAdmin, getAllDrivers);  
 router.get('/:id', verifyAdmin, getDriverById); 
-router.put('/:id', upload.single('image'), verifyAdmin, updateDriverById);      
+router.put('/:id', uploadToS3, verifyAdmin, updateDriverById);      
 router.delete('/:id', verifyAdmin, deleteDriver);  
 router.get('/image/:filename', getImage); 
 

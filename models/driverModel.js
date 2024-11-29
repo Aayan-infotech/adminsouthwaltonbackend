@@ -2,11 +2,7 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 const bcrypt = require('bcrypt');  
 
-// Define the schema for a single image
-const imageSchema = new mongoose.Schema({
-    filename: { type: String, required: true },
-    contentType: { type: String, required: true }
-});
+
 
 const dateSchema = new mongoose.Schema({
     bookingId:{
@@ -29,7 +25,7 @@ const driversSchema = new Schema(
         mobileNumber: { type: String, required: false },
         email: { type: String, required: true, unique: true },
         password: { type: String, required: true },
-        image: imageSchema,
+        images:  { type: [String] },
         address: { type: String, required: false },
         availability: [{
           type: [Date],

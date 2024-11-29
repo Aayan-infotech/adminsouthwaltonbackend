@@ -1,4 +1,4 @@
-const mongoose = require("mongoose"); 
+const mongoose = require("mongoose");
 const { Types: { ObjectId } } = mongoose;
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Payment = require("../models/PaymentModel");
@@ -6,11 +6,7 @@ const Bookform = require('../models/checkoutModel');
 const Vehicle = require('../models/vehicleModel');
 const Damage = require("../models/damageModel");
 const Reserve = require('../models/reserveModel');
-
-// const upload = require("../middleware/upload")
 const multer = require('multer');
-
-// const nodemailer = require("nodemailer");
 const PDFDocument = require("pdfkit");
 const path = require('path');
 const fs = require('fs');
@@ -24,19 +20,14 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
-
 const upload = multer({ storage: storage });
 
 
 // Create Damage Record
 exports.createDamage = async (req, res) => {
-  const baseURL = `${req.protocol}://${req.get("host")}/uploads/`;
-
-  // Map file names to an array of objects with a `url` key
-  const images = req.files ? req.files.map(file => ({ url: baseURL + file.filename })) : [];
-
   try {
     const { paymentId, damage } = req.body;
+    const images = req.fileLocations;
     const objectIdPaymentId = new ObjectId(paymentId);
 
     // Fetch the payment record using paymentId
@@ -65,16 +56,41 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    const vehicleId = bookingDetails.vehiclesId;
+    const { amount, reservation } = payment;
+    if (!reservation) {
+      return res.status(400).json({
+        success: false,
+        message: `Reservation is undefined in payment record: ${paymentId}`,
+      });
+    }
+
+    // Fetch the Reservation details to get vehicleId
+    const reservationDetails = await Reserve.findById(reservation);
+    if (!reservationDetails) {
+      return res.status(404).json({
+        success: false,
+        message: `No reservation record found for the provided Reservation ID: ${reservation}`,
+      });
+    }
+
+    const vehicleId = reservationDetails.vehicleId;
+    if (!vehicleId) {
+      return res.status(404).json({
+        success: false,
+        message: `Vehicle ID not found in Reservation: ${reservation}`,
+      });
+    }
+
+    // Fetch vehicle details using vehicleId
     const vehicleDetails = await Vehicle.findById(vehicleId);
     if (!vehicleDetails) {
       return res.status(404).json({
         success: false,
-        message: `No vehicle record found for the provided vehiclesId: ${vehicleId}`,
+        message: `No vehicle record found for the provided vehicleId: ${vehicleId}`,
       });
     }
 
-    // Create a new Damage record with `images` as an array of objects
+
     const newDamage = new Damage({
       paymentId,
       transactionId,
@@ -89,11 +105,13 @@ exports.createDamage = async (req, res) => {
       success: true,
       message: 'Damage record created successfully',
       data: {
+        damageId: savedDamage._id,
         bookingId: savedDamage.bookingId,
         paymentId: savedDamage.paymentId,
+        amount,
         transactionId: savedDamage.transactionId,
         damage: savedDamage.damage,
-        images: savedDamage.images,  // Now this should display each image URL under `url`
+        images: savedDamage.images,
         bookingDetails: {
           bname: bookingDetails.bname,
           bphone: bookingDetails.bphone,
@@ -101,10 +119,18 @@ exports.createDamage = async (req, res) => {
           baddress: bookingDetails.baddress,
           baddressh: bookingDetails.baddressh,
         },
+        reservationDetails: {
+          vehicleId: reservationDetails.vehicleId,
+          pickup: reservationDetails.pickup,
+          drop: reservationDetails.drop,
+          pickdate: reservationDetails.pickdate,
+          dropdate: reservationDetails.dropdate,
+
+        },
         vehicleDetails: {
           vname: vehicleDetails.vname,
-          vseats: vehicleDetails.vseats,
-          vprice: vehicleDetails.vprice,
+          vseats: vehicleDetails.passenger,
+
         },
       },
     });
@@ -119,139 +145,247 @@ exports.createDamage = async (req, res) => {
 };
 
 
-
-
 exports.sendDamageReport = async (req, res) => {
   try {
-    const { damageId } = req.body;
+    if (req.method === 'GET') {
+      // Handle GET request
+      const { damageId } = req.query; // Assuming `damageId` is sent as a query parameter
 
-    // Find the damage record in the database
-    const damage = await Damage.findById(damageId).lean();  // Use lean to get a plain JS object
+      // Find the damage record in the database
+      const damage = await Damage.findById(damageId).lean(); // Use lean to get a plain JS object
+      if (!damage) {
+        return res.status(404).json({ success: false, message: 'Damage record not found' });
+      }
 
-    if (!damage) {
-      return res.status(404).json({ success: false, message: 'Damage record not found' });
-    }
+      return res.status(200).json({ success: true, data: damage });
+    } else if (req.method === 'POST') {
+      // Handle POST request
+      const { damageId } = req.body;
 
-    // Fetch related booking and vehicle details for the report
-    const bookingDetails = await Bookform.findById(damage.bookingId);
-    const vehicleDetails = await Vehicle.findById(bookingDetails.vehiclesId);
+      // Find the damage record in the database
+      const damage = await Damage.findById(damageId).lean(); // Use lean to get a plain JS object
+      if (!damage) {
+        return res.status(404).json({ success: false, message: 'Damage record not found' });
+      }
 
-    // Create the PDF document
-    const doc = new PDFDocument();
+      // Fetch related booking details
+      const bookingDetails = await Bookform.findById(damage.bookingId);
+      if (!bookingDetails) {
+        return res.status(404).json({ success: false, message: 'Booking details not found' });
+      }
 
-    // Temporary path to store the generated PDF
-    const pdfPath = path.join(__dirname, 'damage-report.pdf');
-    const writeStream = fs.createWriteStream(pdfPath);
+      // Fetch the reservation to get vehicle details
+      const paymentDetails = await Payment.findById(damage.paymentId);
+      if (!paymentDetails || !paymentDetails.reservation) {
+        return res.status(404).json({
+          success: false,
+          message: 'Reservation details not found for the associated payment',
+        });
+      }
 
-    doc.pipe(writeStream);
+      const reservationDetails = await Reserve.findById(paymentDetails.reservation);
+      if (!reservationDetails || !reservationDetails.vehicleId) {
+        return res.status(404).json({
+          success: false,
+          message: 'Vehicle details not found for the associated reservation',
+        });
+      }
 
-    // Add content to the PDF (customize as per your needs)
-    doc.fontSize(16).text('Damage Report', { align: 'center' });
-    doc.moveDown();
+      const vehicleDetails = await Vehicle.findById(reservationDetails.vehicleId);
+      if (!vehicleDetails) {
+        return res.status(404).json({ success: false, message: 'Vehicle record not found' });
+      }
 
-    // Add Damage Record Details
-    doc.fontSize(12).text(`Damage ID: ${damage._id}`);
-    // doc.text(`Reported By: ${damage.reportedBy || 'N/A'}`);
-    // doc.text(`Description: ${damage.damage}`);
-    // doc.text(`Status: ${damage.status || 'N/A'}`);
-    doc.moveDown();
+      // Create the PDF document
+      const doc = new PDFDocument();
 
-    // Add Payment Details
-    doc.fontSize(14).text('Payment Details', { underline: true });
-    doc.fontSize(12).text(`Payment ID: ${damage.paymentId}`);
-    doc.text(`Transaction ID: ${damage.transactionId}`);
-    doc.moveDown();
+      // Temporary path to store the generated PDF
+      const pdfPath = path.join(__dirname, 'damage-report.pdf');
+      const writeStream = fs.createWriteStream(pdfPath);
 
-    doc.fontSize(14).text('Booking Details', { underline: true });
-    doc.fontSize(12).text(`Pickup Location: ${bookingDetails.bpickup}`);
-    doc.text(`Drop Location: ${bookingDetails.bdrop}`);
-    doc.text(`Pickup Date: ${bookingDetails.bpickDate}`);
-    doc.text(`Drop Date: ${bookingDetails.bdropDate}`);
-    doc.text(`Customer Name: ${bookingDetails.bname}`);
-    doc.text(`Phone: ${bookingDetails.bphone}`);
-    doc.text(`Email: ${bookingDetails.bemail}`);
-    doc.text(`Address: ${bookingDetails.baddress}, ${bookingDetails.baddressh}`);
-    doc.moveDown();
+      doc.pipe(writeStream);
 
-    // Add Vehicle Details
-    doc.fontSize(14).text('Vehicle Details', { underline: true });
-    doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails.vname}`);
-    doc.text(`Seats: ${vehicleDetails.vseats}`);
-    doc.text(`Price: ${vehicleDetails.vprice}`);
-    doc.moveDown();
+      // Add content to the PDF (customize as per your needs)
+      doc.fontSize(16).text('Damage Report', { align: 'center' });
+      doc.moveDown();
 
-    doc.end();
+      // Add Damage Record Details
+      doc.fontSize(12).text(`Damage ID: ${damage._id}`);
+      doc.text(`Description: ${damage.damage}`);
+      doc.text(`Transaction ID: ${damage.transactionId}`);
+      doc.moveDown();
 
-    // When the PDF has been fully written to the file, respond with the PDF
-    writeStream.on('finish', () => {
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename=damage-report.pdf');
-      const pdfFileStream = fs.createReadStream(pdfPath);
-      pdfFileStream.pipe(res);
+      // Add Payment Details
+      doc.fontSize(14).text('Payment Details', { underline: true });
+      doc.fontSize(12).text(`Payment ID: ${damage.paymentId}`);
+      doc.text(`Transaction ID: ${paymentDetails.transactionId}`);
+      doc.text(`Amount Paid: ${paymentDetails.amount}`);
+      doc.moveDown();
 
-      // Optionally, delete the PDF after sending to save space
-      pdfFileStream.on('end', () => {
-        fs.unlinkSync(pdfPath);
+      // Add Booking Details
+      doc.fontSize(14).text('Booking Details', { underline: true });
+      doc.fontSize(12).text(`Customer Name: ${bookingDetails.bname}`);
+      doc.text(`Phone: ${bookingDetails.bphone}`);
+      doc.text(`Email: ${bookingDetails.bemail}`);
+      doc.text(`Pickup Location: ${bookingDetails.bpickup}`);
+      doc.text(`Drop Location: ${bookingDetails.bdrop}`);
+      doc.text(`Pickup Date: ${bookingDetails.bpickDate}`);
+      doc.text(`Drop Date: ${bookingDetails.bdropDate}`);
+      doc.moveDown();
+
+      // Add Vehicle Details
+      doc.fontSize(14).text('Vehicle Details', { underline: true });
+      doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails.vname}`);
+      doc.text(`Seats: ${vehicleDetails.passenger}`);
+      doc.text(`Vehicle ID: ${vehicleDetails._id}`);
+      doc.moveDown();
+      doc.end();
+
+      writeStream.on('finish', () => {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=damage-report.pdf');
+        const pdfFileStream = fs.createReadStream(pdfPath);
+        pdfFileStream.pipe(res);
+
+        // Optionally, delete the PDF after sending to save space
+        pdfFileStream.on('end', () => {
+          fs.unlinkSync(pdfPath);
+        });
       });
-    });
-
+    } else {
+      return res.status(405).json({ success: false, message: 'Method not allowed' });
+    }
   } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ success: false, message: 'Server error', error: error.message });
   }
 };
 
-// Get all 
+// getAll
+// exports.getDamages = async (req, res) => {
+//   try {
+
+//     const damages = await Damage.find();
+
+//     const damageDetails = await Promise.all(
+//       damages.map(async (damage) => {
+//         const bookingDetails = await Bookform.findById(damage.bookingId);
+//         const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehicleId) : null;
+
+//         const paymentDetails = await Payment.findById(damage.paymentId);
+
+//         const reservationDetails = paymentDetails && paymentDetails.reservation
+//           ? await Reserve.findOne({ _id: paymentDetails.reservation })
+//           : null;
+
+//         return {
+//           ...damage.toObject(),
+//           bookingDetails: bookingDetails
+//             ? {
+//                 bname: bookingDetails.bname,
+//                 bphone: bookingDetails.bphone,
+//                 bemail: bookingDetails.bemail,
+//                 baddress: bookingDetails.baddress,
+//                 baddressh: bookingDetails.baddressh,
+//               }
+//             : null,
+//           vehicleDetails: vehicleDetails
+//             ? {
+//                 vname: vehicleDetails.vname,
+//                 vseats: vehicleDetails.vseats,
+//                 vprice: vehicleDetails.vprice,
+//               }
+//             : null,
+//           reservationDetails: reservationDetails
+//             ? {
+//                 pickup: reservationDetails.pickup,
+//                 drop: reservationDetails.drop,
+//                 pickdate: reservationDetails.pickdate,
+//                 dropdate: reservationDetails.dropdate,
+//                 days: reservationDetails.days,
+//                 vehicleid: reservationDetails.vehicleid,
+//                 transactionid: reservationDetails.transactionid,
+//                 booking: reservationDetails.booking,
+//                 reservation: reservationDetails.reservation,
+//                 userId: reservationDetails.userId,
+//                 accepted: reservationDetails.accepted,
+//               }
+//             : null,
+//         };
+//       })
+//     );
+
+//     res.json({
+//       success: true,
+//       message: 'Damages retrieved successfully',
+//       data: damageDetails,
+//     });
+//   } catch (err) {
+//     console.log(err);
+//     res.status(500).json({
+//       success: false,
+//       message: err.message,
+//     });
+//   }
+// };
+
 exports.getDamages = async (req, res) => {
   try {
-    
     const damages = await Damage.find();
 
-    // Populate booking, vehicle, and reservation details for each damage record
     const damageDetails = await Promise.all(
       damages.map(async (damage) => {
         const bookingDetails = await Bookform.findById(damage.bookingId);
-        const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
-        // Fetch payment details
         const paymentDetails = await Payment.findById(damage.paymentId);
 
-        // Retrieve reservation details based on the string in `reservation` field of `Payment`
         const reservationDetails = paymentDetails && paymentDetails.reservation
           ? await Reserve.findOne({ _id: paymentDetails.reservation })
           : null;
 
+        const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+
+        // Select specific keys ('vname', 'vseats', 'image')
+        const vehicleDetails = vehicle ? {
+          vname: vehicle.vname,
+          passenger: vehicle.passenger,
+          image: vehicle.image
+        } : null;
+
+
         return {
           ...damage.toObject(),
+          images: damage.images, // Adding image handling
           bookingDetails: bookingDetails
             ? {
-                bname: bookingDetails.bname,
-                bphone: bookingDetails.bphone,
-                bemail: bookingDetails.bemail,
-                baddress: bookingDetails.baddress,
-                baddressh: bookingDetails.baddressh,
-              }
+              bname: bookingDetails.bname,
+              bphone: bookingDetails.bphone,
+              bemail: bookingDetails.bemail,
+              baddress: bookingDetails.baddress,
+              baddressh: bookingDetails.baddressh,
+            }
             : null,
           vehicleDetails: vehicleDetails
             ? {
-                vname: vehicleDetails.vname,
-                vseats: vehicleDetails.vseats,
-                vprice: vehicleDetails.vprice,
-              }
+              vname: vehicleDetails.vname,
+              passenger: vehicleDetails.passenger,
+              image: vehicleDetails.image,
+            }
             : null,
           reservationDetails: reservationDetails
             ? {
-                pickup: reservationDetails.pickup,
-                drop: reservationDetails.drop,
-                pickdate: reservationDetails.pickdate,
-                dropdate: reservationDetails.dropdate,
-                days: reservationDetails.days,
-                vehicleid: reservationDetails.vehicleid,
-                transactionid: reservationDetails.transactionid,
-                booking: reservationDetails.booking,
-                reservation: reservationDetails.reservation,
-                userId: reservationDetails.userId,
-                accepted: reservationDetails.accepted,
-              }
+              pickup: reservationDetails.pickup,
+              drop: reservationDetails.drop,
+              pickdate: reservationDetails.pickdate,
+              dropdate: reservationDetails.dropdate,
+              days: reservationDetails.days,
+              vehicleid: reservationDetails.vehicleid,
+              transactionid: reservationDetails.transactionid,
+              booking: reservationDetails.booking,
+              reservation: reservationDetails.reservation,
+              userId: reservationDetails.userId,
+              accepted: reservationDetails.accepted,
+            }
             : null,
         };
       })
@@ -272,7 +406,7 @@ exports.getDamages = async (req, res) => {
 };
 
 
-// Get Damage by ID 
+// GetbyID 
 exports.getDamageById = async (req, res) => {
   try {
     // Fetch the damage record by ID
@@ -285,9 +419,8 @@ exports.getDamageById = async (req, res) => {
       });
     }
 
-    
+
     const bookingDetails = await Bookform.findById(damage.bookingId);
-    const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehiclesId) : null;
 
     // Fetch payment details to retrieve reservation string
     const paymentDetails = await Payment.findById(damage.paymentId);
@@ -295,12 +428,21 @@ exports.getDamageById = async (req, res) => {
     const reservationDetails = paymentDetails && paymentDetails.reservation
       ? await Reserve.findOne({ _id: paymentDetails.reservation })
       : null;
+    const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+
+    // Select specific keys ('vname', 'vseats', 'image')
+    const vehicleDetails = vehicle ? {
+      vname: vehicle.vname,
+      passenger: vehicle.passenger,
+      image: vehicle.image
+    } : null;
 
     res.json({
       success: true,
       message: 'Damage record retrieved successfully',
       data: {
         ...damage.toObject(),
+        images: damage.images,
         bookingDetails: bookingDetails ? {
           bname: bookingDetails.bname,
           bphone: bookingDetails.bphone,
@@ -310,8 +452,8 @@ exports.getDamageById = async (req, res) => {
         } : null,
         vehicleDetails: vehicleDetails ? {
           vname: vehicleDetails.vname,
-          vseats: vehicleDetails.vseats,
-          vprice: vehicleDetails.vprice,
+          passenger: vehicleDetails.passenger,
+          image: vehicleDetails.image,
         } : null,
         reservationDetails: reservationDetails ? {
           pickup: reservationDetails.pickup,
@@ -336,9 +478,7 @@ exports.getDamageById = async (req, res) => {
   }
 };
 
-
-
-// Update Damage Record
+// Update 
 exports.updateDamage = async (req, res) => {
   try {
     const updateData = {
@@ -376,7 +516,7 @@ exports.updateDamage = async (req, res) => {
   }
 };
 
-// Delete Damage Record
+// Delete
 exports.deleteDamage = async (req, res) => {
   try {
     const damage = await Damage.findById(req.params.id);
@@ -401,12 +541,16 @@ exports.deleteDamage = async (req, res) => {
 
 // Process Refund
 exports.processRefund = async (req, res) => {
-  const { paymentId } = req.body;  // Expecting paymentId in the request body
+  const { id: paymentId } = req.params;
 
   try {
-    // Step 1: Retrieve the payment record from the database using paymentId
-    const payment = await Payment.findOne({ _id: new mongoose.Types.ObjectId(paymentId) });
-
+    if (!mongoose.Types.ObjectId.isValid(paymentId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid paymentId format',
+      });
+    }
+    const payment = await Payment.findOne({ _id: paymentId });
     if (!payment) {
       return res.status(404).json({
         success: false,
@@ -414,12 +558,8 @@ exports.processRefund = async (req, res) => {
       });
     }
 
-    // Step 2: Retrieve the transactionId from the payment record
-    const transactionId = payment.transactionId;
-
-    // Step 3: Fetch the paymentIntent details from Stripe using the transactionId
+    const { transactionId } = payment;
     const paymentIntent = await stripe.paymentIntents.retrieve(transactionId);
-
     if (!paymentIntent || !paymentIntent.latest_charge) {
       return res.status(404).json({
         success: false,
@@ -427,22 +567,22 @@ exports.processRefund = async (req, res) => {
       });
     }
 
-    const chargeId = paymentIntent.latest_charge;  // Fetch chargeId from paymentIntent
+    const chargeId = paymentIntent.latest_charge;
 
-    // Step 4: Process a partial refund (25% in this case)
     const refund = await stripe.refunds.create({
       charge: chargeId,
-      amount: Math.floor(0.25 * paymentIntent.amount_received),  // 25% refund
+      amount: Math.floor(0.25 * paymentIntent.amount_received),
     });
 
-    // Step 5: Respond with success message
+    console.log(refund)
+
     res.status(200).json({
       success: true,
       message: 'Refund processed successfully',
       refund: refund,
     });
   } catch (error) {
-    // Handle errors
+    console.error('Refund Error:', error.message);
     res.status(500).json({
       success: false,
       message: 'Failed to process refund',

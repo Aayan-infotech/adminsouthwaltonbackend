@@ -5,7 +5,7 @@ const seasonController = require('../controllers/seasonController');
 
 router.post('/add', seasonController.createSeason);
 
-router.post('/:seasonId/add-entry', seasonController.addSeasonEntry);
+router.post('/:seasonId?/add-entry', seasonController.addSeasonEntry);
 
 router.get('/', seasonController.getAllSeasons);
 
@@ -16,3 +16,6 @@ router.put('/:seasonId/:entryId', seasonController.updateSeasonEntry);
 router.delete('/:seasonId/:seasonType/:entryId', seasonController.deleteSeasonEntry);
 
 module.exports = router;
+
+//          
+
