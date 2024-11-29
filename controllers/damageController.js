@@ -101,7 +101,7 @@ exports.createDamage = async (req, res) => {
 
     const savedDamage = await newDamage.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'Damage record created successfully',
       data: {
