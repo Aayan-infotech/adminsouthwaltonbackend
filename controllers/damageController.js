@@ -592,3 +592,57 @@ exports.processRefund = async (req, res) => {
 };
 
 
+
+exports.getDamagesByDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({ message: 'Invalid driver ID.' });
+    }
+
+    const bookings = await Bookform.find({ driver: driverId }, '_id');
+    if (!bookings || bookings.length === 0) {
+      return res.status(404).json({ message: 'No bookings found for this driver.' });
+    }
+
+    const bookingIds = bookings.map((booking) => booking._id);
+
+    const damages = await Damage.find({ bookingId: { $in: bookingIds } });
+
+    if (!damages || damages.length === 0) {
+      return res.status(404).json({ message: 'No damages found for this driver.' });
+    }
+
+    const damagesWithDetails = await Promise.all(
+      damages.map(async (damage) => {
+        const payment = await Payment.findOne({ _id: damage.paymentId }, 'reservation');
+        let reservationDetails = null;
+        let vehicleDetails = null;
+
+        if (payment && payment.reservation) {
+          reservationDetails = await Reserve.findOne({ _id: payment.reservation });
+
+          if (reservationDetails && reservationDetails.vehicleId) {
+            vehicleDetails = await Vehicle.findOne(
+              { _id: reservationDetails.vehicleId },
+              'image vname passenger' // Fetch only the required fields
+            );
+          }
+        }
+
+        return {
+          ...damage._doc,
+          reservationDetails: reservationDetails || null, // Embed detailed reservation information
+          vehicleDetails: vehicleDetails || null, // Embed specific vehicle details
+        };
+      })
+    );
+
+    return res.status(200).json({ damages: damagesWithDetails });
+  } catch (error) {
+    console.error('Error fetching damages:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+};
+
