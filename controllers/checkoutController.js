@@ -87,23 +87,40 @@ const getAllBookforms = async (req, res) => {
 // Get a specific booking form by ID
 const getBookformById = async (req, res) => {
   try {
+    // Fetch the Bookform
     const bookform = await Bookform.findById(req.params.id)
       .populate('driver')
-      .populate('customerDrivers');
-
+      .populate('customerDrivers')
+      .populate({
+        path: 'paymentId',
+        populate: {
+          path: 'reservation', // Populate reservation details
+          model: 'Reservation', // Referencing the Reservation model
+        },
+      });
     if (!bookform) {
       return res.status(404).json({ message: 'Booking form not found' });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: "Booking found",
-      booking: bookform,
-    });
-  } catch (error) {
+    const reservationDetails =
+    bookform.paymentId && bookform.paymentId.reservation
+      ? bookform.paymentId.reservation
+      : null;
+
+  return res.status(200).json({
+    success: true,
+    message: 'Booking found',
+    booking: {
+      ...bookform.toObject(),
+      reservationDetails, // Attach only reservation details
+    },
+  });
+} catch (error) {
+    console.error('Error fetching booking:', error.message);
     res.status(500).json({ message: error.message });
   }
 };
+
 
 
 
