@@ -65,27 +65,47 @@ const createDriver = async (req, res, next) => {
 
 const getAllDrivers = async (req, res, next) => {
     try {
-        const allDrivers = await Driver.find();  // Ensure Driver model is used
+        const { page = 1, limit = 10, search = "" } = req.query;
+
+
+        const pageNumber = parseInt(page, 10);
+        const limitNumber = parseInt(limit, 10);
+
+
+        const searchFilter = {
+            $or: [
+                { name: { $regex: search, $options: "i" } },
+                { email: { $regex: search, $options: "i" } }
+            ]
+        };
+
+
+        const allDrivers = await Driver.find(searchFilter)
+            .skip((pageNumber - 1) * limitNumber)
+            .limit(limitNumber);
+
+        const totalDrivers = await Driver.countDocuments(searchFilter);
+
         const driverWithImageURLs = allDrivers.map(driver => {
-  
             if (driver.images && driver.images.length > 0) {
-              
                 return {
                     ...driver._doc,
-                    images: driver.images  
+                    images: driver.images
                 };
             } else {
-                
                 const { image, ...driverWithoutImages } = driver._doc;
                 return driverWithoutImages;
             }
         });
-        
-        // Respond with the drivers including the images array (if available)
+
+
         return res.status(200).json({
             success: true,
             message: "All Drivers",
-            drivers: driverWithImageURLs
+            drivers: driverWithImageURLs,
+            currentPage: pageNumber,
+            totalPages: Math.ceil(totalDrivers / limitNumber),
+            totalDrivers
         });
     } catch (error) {
         console.error(error);

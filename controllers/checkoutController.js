@@ -20,7 +20,6 @@ const createBookform = async (req, res) => {
 const getAllBookforms = async (req, res) => {
   try {
     const payments = await Payment.find();
-    console.log('Payments:', payments);
 
     if (!payments || payments.length === 0) {
       return res.status(404).json({ message: 'No payments found' });

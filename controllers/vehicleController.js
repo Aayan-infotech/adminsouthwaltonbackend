@@ -83,20 +83,38 @@ exports.updateVehicle = async (req, res) => {
 // getAll
 exports.getVehicles = async (req, res) => {
   try {
-    let vehicles = await Vehicle.find();
+    const { page = 1, limit = 10, search = "" } = req.query; 
 
-    // Format the response if needed
-    const formattedVehicles = vehicles.map(vehicle => ({
+
+    const searchQuery = search
+      ? { vname: { $regex: search, $options: "i" } } 
+      : {};
+
+
+    const vehicles = await Vehicle.find(searchQuery)
+      .skip((page - 1) * limit) 
+      .limit(Number(limit)); 
+
+
+    const totalCount = await Vehicle.countDocuments(searchQuery);
+
+    const formattedVehicles = vehicles.map((vehicle) => ({
       ...vehicle.toObject(),
       image: vehicle.image,
     }));
 
-    res.status(200).json(formattedVehicles);
+    res.status(200).json({
+      vehicles: formattedVehicles,
+      totalPages: Math.ceil(totalCount / limit), 
+      currentPage: Number(page),
+      totalCount, 
+    });
   } catch (err) {
     console.error("Error fetching vehicles:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Delete 
 exports.deleteVehicle = async (req, res) => {

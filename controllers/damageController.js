@@ -261,77 +261,25 @@ exports.sendDamageReport = async (req, res) => {
   }
 };
 
-// getAll
-// exports.getDamages = async (req, res) => {
-//   try {
 
-//     const damages = await Damage.find();
-
-//     const damageDetails = await Promise.all(
-//       damages.map(async (damage) => {
-//         const bookingDetails = await Bookform.findById(damage.bookingId);
-//         const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehicleId) : null;
-
-//         const paymentDetails = await Payment.findById(damage.paymentId);
-
-//         const reservationDetails = paymentDetails && paymentDetails.reservation
-//           ? await Reserve.findOne({ _id: paymentDetails.reservation })
-//           : null;
-
-//         return {
-//           ...damage.toObject(),
-//           bookingDetails: bookingDetails
-//             ? {
-//                 bname: bookingDetails.bname,
-//                 bphone: bookingDetails.bphone,
-//                 bemail: bookingDetails.bemail,
-//                 baddress: bookingDetails.baddress,
-//                 baddressh: bookingDetails.baddressh,
-//               }
-//             : null,
-//           vehicleDetails: vehicleDetails
-//             ? {
-//                 vname: vehicleDetails.vname,
-//                 vseats: vehicleDetails.vseats,
-//                 vprice: vehicleDetails.vprice,
-//               }
-//             : null,
-//           reservationDetails: reservationDetails
-//             ? {
-//                 pickup: reservationDetails.pickup,
-//                 drop: reservationDetails.drop,
-//                 pickdate: reservationDetails.pickdate,
-//                 dropdate: reservationDetails.dropdate,
-//                 days: reservationDetails.days,
-//                 vehicleid: reservationDetails.vehicleid,
-//                 transactionid: reservationDetails.transactionid,
-//                 booking: reservationDetails.booking,
-//                 reservation: reservationDetails.reservation,
-//                 userId: reservationDetails.userId,
-//                 accepted: reservationDetails.accepted,
-//               }
-//             : null,
-//         };
-//       })
-//     );
-
-//     res.json({
-//       success: true,
-//       message: 'Damages retrieved successfully',
-//       data: damageDetails,
-//     });
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({
-//       success: false,
-//       message: err.message,
-//     });
-//   }
-// };
 
 exports.getDamages = async (req, res) => {
   try {
-    const damages = await Damage.find();
+
+    const { page = 1, limit = 10 } = req.query;
+
+
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+
+    const totalDamages = await Damage.countDocuments();
+
+
+    const damages = await Damage.find()
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
 
     const damageDetails = await Promise.all(
       damages.map(async (damage) => {
@@ -343,49 +291,52 @@ exports.getDamages = async (req, res) => {
           ? await Reserve.findOne({ _id: paymentDetails.reservation })
           : null;
 
-        const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+        const vehicle = reservationDetails
+          ? await Vehicle.findById(reservationDetails.vehicleId)
+          : null;
 
-        // Select specific keys ('vname', 'vseats', 'image')
-        const vehicleDetails = vehicle ? {
-          vname: vehicle.vname,
-          passenger: vehicle.passenger,
-          image: vehicle.image
-        } : null;
 
+        const vehicleDetails = vehicle
+          ? {
+              vname: vehicle.vname,
+              passenger: vehicle.passenger,
+              image: vehicle.image,
+            }
+          : null;
 
         return {
           ...damage.toObject(),
-          images: damage.images, // Adding image handling
+          images: damage.images,
           bookingDetails: bookingDetails
             ? {
-              bname: bookingDetails.bname,
-              bphone: bookingDetails.bphone,
-              bemail: bookingDetails.bemail,
-              baddress: bookingDetails.baddress,
-              baddressh: bookingDetails.baddressh,
-            }
+                bname: bookingDetails.bname,
+                bphone: bookingDetails.bphone,
+                bemail: bookingDetails.bemail,
+                baddress: bookingDetails.baddress,
+                baddressh: bookingDetails.baddressh,
+              }
             : null,
           vehicleDetails: vehicleDetails
             ? {
-              vname: vehicleDetails.vname,
-              passenger: vehicleDetails.passenger,
-              image: vehicleDetails.image,
-            }
+                vname: vehicleDetails.vname,
+                passenger: vehicleDetails.passenger,
+                image: vehicleDetails.image,
+              }
             : null,
           reservationDetails: reservationDetails
             ? {
-              pickup: reservationDetails.pickup,
-              drop: reservationDetails.drop,
-              pickdate: reservationDetails.pickdate,
-              dropdate: reservationDetails.dropdate,
-              days: reservationDetails.days,
-              vehicleid: reservationDetails.vehicleid,
-              transactionid: reservationDetails.transactionid,
-              booking: reservationDetails.booking,
-              reservation: reservationDetails.reservation,
-              userId: reservationDetails.userId,
-              accepted: reservationDetails.accepted,
-            }
+                pickup: reservationDetails.pickup,
+                drop: reservationDetails.drop,
+                pickdate: reservationDetails.pickdate,
+                dropdate: reservationDetails.dropdate,
+                days: reservationDetails.days,
+                vehicleid: reservationDetails.vehicleid,
+                transactionid: reservationDetails.transactionid,
+                booking: reservationDetails.booking,
+                reservation: reservationDetails.reservation,
+                userId: reservationDetails.userId,
+                accepted: reservationDetails.accepted,
+              }
             : null,
         };
       })
@@ -395,6 +346,12 @@ exports.getDamages = async (req, res) => {
       success: true,
       message: 'Damages retrieved successfully',
       data: damageDetails,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalDamages / limitNumber),
+        totalItems: totalDamages,
+        itemsPerPage: limitNumber,
+      },
     });
   } catch (err) {
     console.log(err);
@@ -404,6 +361,7 @@ exports.getDamages = async (req, res) => {
     });
   }
 };
+
 
 
 // GetbyID 
@@ -574,7 +532,6 @@ exports.processRefund = async (req, res) => {
       amount: Math.floor(0.25 * paymentIntent.amount_received),
     });
 
-    console.log(refund)
 
     res.status(200).json({
       success: true,
