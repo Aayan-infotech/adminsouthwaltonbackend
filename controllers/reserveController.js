@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Reserve = require('../models/reserveModel');
 const Bookform = require('../models/checkoutModel');
 const router = express.Router();
+const Payment = require('../models/PaymentModel'); 
 const nodemailer = require('nodemailer');
 const User = require('../models/userModel');
 
@@ -35,24 +36,23 @@ const getAllReservations = async (req, res) => {
 //accept
 const acceptReservation = async (req, res) => {
     try {
-        const { id } = req.params; // Get reservation ID from request parameters
+        const { id } = req.params; 
         const reservation = await Reserve.findById(id);
 
         if (!reservation) {
             return res.status(404).json({ message: "Reservation not found" });
         }
-
-        // Update reservation status to accepted
-        reservation.booking = true; // Set booking status as accepted
+        reservation.booking = true; 
         await reservation.save();
+        const payment = await Payment.findOne({ reservation: id });
+        if (!payment) {
+            return res.status(404).json({ message: "Payment record not found for this reservation." });
+        }
 
-        // Fetch user email from the userId
-        const user = await User.findById(reservation.userId);
+        const user = await User.findById(payment.userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-
-        // Send email notification
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -63,7 +63,7 @@ const acceptReservation = async (req, res) => {
 
         const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: user.email, // User email from the database
+            to: user.email, 
             subject: 'Reservation Accepted',
             text: `Your reservation with ID ${id} has been accepted. Kindly continue with your booking. Thank you!`
         };

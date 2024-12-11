@@ -9,6 +9,7 @@ router.put('/:id', uploadToS3, vehicleController.updateVehicle);
 router.delete('/:id', vehicleController.deleteVehicle);
 router.get('/by-season-and-day', vehicleController.getVehiclesBySeasonAndDay); 
 router.get('/price/:vehicleID', vehicleController.getVehiclePrice);
+router.get('/:id', vehicleController.getVehicleById);
 
 
 

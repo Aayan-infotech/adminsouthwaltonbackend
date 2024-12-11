@@ -40,7 +40,7 @@ const reserveSchema = mongoose.Schema(
         userId: {
             type: mongoose.Schema.Types.ObjectId, // Reference to User model
             ref: 'User',  // This will reference the User model
-            required: true
+            required: false
         },
         accepted: {  
             type: Boolean,

@@ -220,4 +220,21 @@ exports.getVehiclePrice = async (req, res) => {
 
 
 
+exports.getVehicleById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const vehicle = await Vehicle.findById(id).select("vname passenger");
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    }
+    res.status(200).json(vehicle);
+    
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 
