@@ -130,7 +130,7 @@ exports.createDamage = async (req, res) => {
         vehicleDetails: {
           vname: vehicleDetails.vname,
           vseats: vehicleDetails.passenger,
-
+          tagNumber: vehicleDetails.tagNumber
         },
       },
     });
@@ -236,6 +236,7 @@ exports.sendDamageReport = async (req, res) => {
       // Add Vehicle Details
       doc.fontSize(14).text('Vehicle Details', { underline: true });
       doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails.vname}`);
+      doc.fontSize(12).text(`Tag Number: ${vehicleDetails.tagNumber}`);
       doc.text(`Seats: ${vehicleDetails.passenger}`);
       doc.text(`Vehicle ID: ${vehicleDetails._id}`);
       doc.moveDown();
@@ -277,6 +278,7 @@ exports.getDamages = async (req, res) => {
 
 
     const damages = await Damage.find()
+      .sort({ createdAt: -1 })
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
 
@@ -298,10 +300,11 @@ exports.getDamages = async (req, res) => {
 
         const vehicleDetails = vehicle
           ? {
-              vname: vehicle.vname,
-              passenger: vehicle.passenger,
-              image: vehicle.image,
-            }
+            vname: vehicle.vname,
+            passenger: vehicle.passenger,
+            image: vehicle.image,
+            tagNumber: vehicle.tagNumber
+          }
           : null;
 
         return {
@@ -309,34 +312,35 @@ exports.getDamages = async (req, res) => {
           images: damage.images,
           bookingDetails: bookingDetails
             ? {
-                bname: bookingDetails.bname,
-                bphone: bookingDetails.bphone,
-                bemail: bookingDetails.bemail,
-                baddress: bookingDetails.baddress,
-                baddressh: bookingDetails.baddressh,
-              }
+              bname: bookingDetails.bname,
+              bphone: bookingDetails.bphone,
+              bemail: bookingDetails.bemail,
+              baddress: bookingDetails.baddress,
+              baddressh: bookingDetails.baddressh,
+            }
             : null,
           vehicleDetails: vehicleDetails
             ? {
-                vname: vehicleDetails.vname,
-                passenger: vehicleDetails.passenger,
-                image: vehicleDetails.image,
-              }
+              vname: vehicleDetails.vname,
+              passenger: vehicleDetails.passenger,
+              image: vehicleDetails.image,
+              tagNumber: vehicleDetails.tagNumber
+            }
             : null,
           reservationDetails: reservationDetails
             ? {
-                pickup: reservationDetails.pickup,
-                drop: reservationDetails.drop,
-                pickdate: reservationDetails.pickdate,
-                dropdate: reservationDetails.dropdate,
-                days: reservationDetails.days,
-                vehicleid: reservationDetails.vehicleid,
-                transactionid: reservationDetails.transactionid,
-                booking: reservationDetails.booking,
-                reservation: reservationDetails.reservation,
-                userId: reservationDetails.userId,
-                accepted: reservationDetails.accepted,
-              }
+              pickup: reservationDetails.pickup,
+              drop: reservationDetails.drop,
+              pickdate: reservationDetails.pickdate,
+              dropdate: reservationDetails.dropdate,
+              days: reservationDetails.days,
+              vehicleid: reservationDetails.vehicleid,
+              transactionid: reservationDetails.transactionid,
+              booking: reservationDetails.booking,
+              reservation: reservationDetails.reservation,
+              userId: reservationDetails.userId,
+              accepted: reservationDetails.accepted,
+            }
             : null,
         };
       })
@@ -391,6 +395,7 @@ exports.getDamageById = async (req, res) => {
     // Select specific keys ('vname', 'vseats', 'image')
     const vehicleDetails = vehicle ? {
       vname: vehicle.vname,
+      tagNumber: vehicle.tagNumber,
       passenger: vehicle.passenger,
       image: vehicle.image
     } : null;
@@ -410,6 +415,7 @@ exports.getDamageById = async (req, res) => {
         } : null,
         vehicleDetails: vehicleDetails ? {
           vname: vehicleDetails.vname,
+          tagNumber: vehicleDetails.tagNumber,
           passenger: vehicleDetails.passenger,
           image: vehicleDetails.image,
         } : null,
@@ -583,7 +589,7 @@ exports.getDamagesByDriver = async (req, res) => {
           if (reservationDetails && reservationDetails.vehicleId) {
             vehicleDetails = await Vehicle.findOne(
               { _id: reservationDetails.vehicleId },
-              'image vname passenger' // Fetch only the required fields
+              'image vname passenger tagNumber' // Fetch only the required fields
             );
           }
         }

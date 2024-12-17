@@ -20,6 +20,7 @@ const vehicleRoute = require('./routes/vehicleRoute');
 const taskRoute = require('./routes/taskRoute');
 const damageRoute = require('./routes/damageRoute');
 const reserveRoute = require('./routes/reserveRoute');
+const requestRoute = require('./routes/requestRoute')
 
 const PaymentRoute = require('./routes/PaymentRoute');
 const seasonRoute = require('./routes/seasonRoute');
@@ -64,7 +65,7 @@ app.use('/api/sign', signRoutes);
 app.use('/api/feedback', feedbackRoute);
 // Static file serving for image uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
+app.use('/api/request',requestRoute);
 // Global error handler middleware
 app.use((obj, req, res, next) => {
     const statusCode = obj.status || 500;

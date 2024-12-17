@@ -65,7 +65,7 @@ const getStatus = async (req, res, next) => {
       return next(createError(404, "User Not Found"));
     }
 
-  
+
     return next(createSuccess(200, "User status retrieved", { isActive: user.isActive }));
   } catch (error) {
     console.error("Error retrieving user status:", error);
@@ -85,17 +85,20 @@ const getAllUsers = async (req, res, next) => {
 
     // Create a search filter
     const searchFilter = query
-      ? { $or: [
+      ? {
+        $or: [
           { fullName: { $regex: query, $options: "i" } },
           { email: { $regex: query, $options: "i" } },
           { phoneNumber: { $regex: query, $options: "i" } },
           { state: { $regex: query, $options: "i" } }
-        ] }
+        ]
+      }
       : {};
 
     // Calculate total count and fetch users with pagination and search
     const totalUsers = await User.countDocuments(searchFilter);
     const users = await User.find(searchFilter)
+      .sort({ createdAt: -1 })
       .skip((pageNumber - 1) * limitNumber)
       .limit(limitNumber);
 
@@ -170,4 +173,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, getAllUsers,getStatus, getUserById, updateUser, deleteUser, activate };
+module.exports = { register, getAllUsers, getStatus, getUserById, updateUser, deleteUser, activate };
