@@ -309,12 +309,11 @@ const assignDriverToBooking = async (req, res) => {
     }
 };
 
-
+//for Booking (Status == 'PENDING'&&'DELIVERED'
 const getDriverBookings = async (req, res) => {
     const { driverId } = req.params;
 
     try {
-        // Fetch the driver and populate bookings
         const driver = await Driver.findById(driverId).populate('bookings');
 
         if (!driver) {
@@ -325,39 +324,39 @@ const getDriverBookings = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
         }
 
-        // Map bookings to fetch nested payment and reservation details
-        const bookingsWithDetails = await Promise.all(driver.bookings.map(async (booking) => {
-            if (!booking) return null;
+        const bookingsWithDetails = await Promise.all(
+            driver.bookings.map(async (booking) => {
+                if (!booking || (booking.status !== 'PENDING' && booking.status !== 'DELIVERED')) {
+                    return null; 
+                }
 
-            // Fetch payment details using booking.paymentId
-            const payment = await Payment.findById(booking.paymentId);
-            if (!payment) return null;
+                const payment = await Payment.findById(booking.paymentId);
+                if (!payment) return null;
 
-            const reservation = await Reservation.findById(payment.reservation);
-            if (!reservation) return null;
+                const reservation = await Reservation.findById(payment.reservation);
+                if (!reservation) return null;
 
+                return {
+                    bookingId: booking._id,
+                    bname: booking.bname,
+                    bemail: booking.bemail,
+                    bsize: booking.bsize,
+                    baddress: booking.baddress,
+                    baddressh: booking.baddressh,
+                    status: booking.status,
+                    paymentId: payment._id,
+                    transactionId: payment.transactionId,
+                    amount: payment.amount,
+                    pickup: reservation.pickup,
+                    drop: reservation.drop,
+                    pickDate: reservation.pickdate,
+                    dropDate: reservation.dropdate,
+                };
+            })
+        );
 
-            return {
-                bookingId: booking._id,
-                bname: booking.bname,
-                bemail: booking.bemail,
-                bsize: booking.bsize,
-                baddress: booking.baddress,
-                baddressh: booking.baddressh,
-                paymentId: payment._id,
-                transactionId: payment.transactionId,
-                amount: payment.amount,
-                pickup: reservation.pickup,
-                drop: reservation.drop,
-                pickDate: reservation.pickdate,
-                dropDate: reservation.dropdate,
-            };
-        }));
+        const validBookings = bookingsWithDetails.filter(booking => booking); // Remove null values
 
-        // Remove null or invalid bookings
-        const validBookings = bookingsWithDetails.filter(booking => booking);
-
-        // Respond with detailed driver and booking information
         res.json({
             success: true,
             message: 'All bookings of this driver',
@@ -374,6 +373,72 @@ const getDriverBookings = async (req, res) => {
         res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
 };
+
+//for Hostory (Status == 'COMPLETED')
+const getDriverHistoryBookings = async (req, res) => {
+    const { driverId } = req.params;
+
+    try {
+        const driver = await Driver.findById(driverId).populate('bookings');
+
+        if (!driver) {
+            return res.status(404).json({ success: false, message: 'Driver not found' });
+        }
+
+        if (!driver.bookings || driver.bookings.length === 0) {
+            return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
+        }
+
+        const bookingsWithDetails = await Promise.all(
+            driver.bookings.map(async (booking) => {
+                if (!booking || booking.status !== 'COMPLETED') {
+                    return null; // Skip bookings not matching the status condition
+                }
+
+                const payment = await Payment.findById(booking.paymentId);
+                if (!payment) return null;
+
+                const reservation = await Reservation.findById(payment.reservation);
+                if (!reservation) return null;
+
+                return {
+                    bookingId: booking._id,
+                    bname: booking.bname,
+                    bemail: booking.bemail,
+                    bsize: booking.bsize,
+                    baddress: booking.baddress,
+                    baddressh: booking.baddressh,
+                    status: booking.status,
+                    paymentId: payment._id,
+                    transactionId: payment.transactionId,
+                    amount: payment.amount,
+                    pickup: reservation.pickup,
+                    drop: reservation.drop,
+                    pickDate: reservation.pickdate,
+                    dropDate: reservation.dropdate,
+                };
+            })
+        );
+
+        const validBookings = bookingsWithDetails.filter(booking => booking); // Remove null values
+
+        res.json({
+            success: true,
+            message: 'Completed bookings of this driver',
+            driver: {
+                name: driver.name,
+                mobileNumber: driver.mobileNumber,
+                email: driver.email,
+                address: driver.address,
+                bookings: validBookings,
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching driver bookings:', error);
+        res.status(500).json({ success: false, message: 'Internal Server Error' });
+    }
+};
+
 
 
 //update status
@@ -471,4 +536,4 @@ const getFilteredBookings = async (req, res, next) => {
 
 
 
-module.exports = { updateBookingStatus, getFilteredBookings, createDriver, assignDriverToBooking, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage, driverLogin, driverLogout, getDriverBookings };
+module.exports = { updateBookingStatus, getFilteredBookings, createDriver, assignDriverToBooking, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage, driverLogin, driverLogout, getDriverBookings,getDriverHistoryBookings };
