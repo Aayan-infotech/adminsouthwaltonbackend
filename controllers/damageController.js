@@ -56,10 +56,10 @@ exports.createDamage = async (req, res) => {
     }
 
     // Check if booking status is 'DELIVERED'
-    if (bookingDetails.status !== 'DELIVERED') {
+    if (bookingDetails.status !== 'COMPLETED') {
       return res.status(400).json({
         success: false,
-        message: `Damage record can only be created if the booking status is 'DELIVERED'. Current status: ${bookingDetails.status}`,
+        message: `Damage record can only be created if the booking status is 'COMPLETED'. Current status: ${bookingDetails.status}`,
       });
     }
 
