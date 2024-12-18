@@ -312,6 +312,7 @@ const assignDriverToBooking = async (req, res) => {
 //for Booking (Status == 'PENDING'&&'DELIVERED'
 const getDriverBookings = async (req, res) => {
     const { driverId } = req.params;
+    const { search = '' } = req.query; // Default search is an empty string
 
     try {
         const driver = await Driver.findById(driverId).populate('bookings');
@@ -324,12 +325,14 @@ const getDriverBookings = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
         }
 
-        const bookingsWithDetails = await Promise.all(
-            driver.bookings.map(async (booking) => {
-                if (!booking || (booking.status !== 'PENDING' && booking.status !== 'DELIVERED')) {
-                    return null; 
-                }
+        // Filter bookings by bname
+        const filteredBookings = driver.bookings.filter(booking => {
+            return booking.bname.toLowerCase().includes(search.toLowerCase()) && 
+                (booking.status === 'PENDING' || booking.status === 'DELIVERED');
+        });
 
+        const bookingsWithDetails = await Promise.all(
+            filteredBookings.map(async (booking) => {
                 const payment = await Payment.findById(booking.paymentId);
                 if (!payment) return null;
 
@@ -374,9 +377,11 @@ const getDriverBookings = async (req, res) => {
     }
 };
 
+
 //for Hostory (Status == 'COMPLETED')
 const getDriverHistoryBookings = async (req, res) => {
     const { driverId } = req.params;
+    const { page = 1, limit = 10, search = '' } = req.query; // Default page 1 and limit 10
 
     try {
         const driver = await Driver.findById(driverId).populate('bookings');
@@ -389,12 +394,18 @@ const getDriverHistoryBookings = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No bookings found for this driver' });
         }
 
-        const bookingsWithDetails = await Promise.all(
-            driver.bookings.map(async (booking) => {
-                if (!booking || booking.status !== 'COMPLETED') {
-                    return null; // Skip bookings not matching the status condition
-                }
+        // Filter bookings by bname
+        const filteredBookings = driver.bookings.filter(booking => {
+            return booking.bname.toLowerCase().includes(search.toLowerCase()) && booking.status === 'COMPLETED';
+        });
 
+        // Paginate the filtered bookings
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+        const paginatedBookings = filteredBookings.slice(startIndex, endIndex);
+
+        const bookingsWithDetails = await Promise.all(
+            paginatedBookings.map(async (booking) => {
                 const payment = await Payment.findById(booking.paymentId);
                 if (!payment) return null;
 
@@ -422,6 +433,10 @@ const getDriverHistoryBookings = async (req, res) => {
 
         const validBookings = bookingsWithDetails.filter(booking => booking); // Remove null values
 
+        // Get total count of bookings to calculate total pages
+        const totalBookings = filteredBookings.length;
+        const totalPages = Math.ceil(totalBookings / limit);
+
         res.json({
             success: true,
             message: 'Completed bookings of this driver',
@@ -431,6 +446,12 @@ const getDriverHistoryBookings = async (req, res) => {
                 email: driver.email,
                 address: driver.address,
                 bookings: validBookings,
+            },
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalBookings,
+                perPage: parseInt(limit),
             }
         });
     } catch (error) {

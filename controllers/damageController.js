@@ -26,11 +26,10 @@ const upload = multer({ storage: storage });
 // Create Damage Record
 exports.createDamage = async (req, res) => {
   try {
-    const { paymentId, damage } = req.body;
-    const images = req.fileLocations;
+    const { paymentId } = req.body;
+    const images = req.fileLocations; 
     const objectIdPaymentId = new ObjectId(paymentId);
 
-    // Fetch the payment record using paymentId
     const payment = await Payment.findById(objectIdPaymentId);
     if (!payment) {
       return res.status(404).json({
@@ -56,6 +55,14 @@ exports.createDamage = async (req, res) => {
       });
     }
 
+    // Check if booking status is 'DELIVERED'
+    if (bookingDetails.status !== 'DELIVERED') {
+      return res.status(400).json({
+        success: false,
+        message: `Damage record can only be created if the booking status is 'DELIVERED'. Current status: ${bookingDetails.status}`,
+      });
+    }
+
     const { amount, reservation } = payment;
     if (!reservation) {
       return res.status(400).json({
@@ -64,7 +71,6 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch the Reservation details to get vehicleId
     const reservationDetails = await Reserve.findById(reservation);
     if (!reservationDetails) {
       return res.status(404).json({
@@ -81,7 +87,6 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch vehicle details using vehicleId
     const vehicleDetails = await Vehicle.findById(vehicleId);
     if (!vehicleDetails) {
       return res.status(404).json({
@@ -90,6 +95,8 @@ exports.createDamage = async (req, res) => {
       });
     }
 
+    // Determine damage status based on the presence of images
+    const damage = images && images.length > 0 ? true : false;
 
     const newDamage = new Damage({
       paymentId,
@@ -125,12 +132,11 @@ exports.createDamage = async (req, res) => {
           drop: reservationDetails.drop,
           pickdate: reservationDetails.pickdate,
           dropdate: reservationDetails.dropdate,
-
         },
         vehicleDetails: {
           vname: vehicleDetails.vname,
           vseats: vehicleDetails.passenger,
-          tagNumber: vehicleDetails.tagNumber
+          tagNumber: vehicleDetails.tagNumber,
         },
       },
     });
@@ -143,6 +149,8 @@ exports.createDamage = async (req, res) => {
     });
   }
 };
+
+
 
 
 exports.sendDamageReport = async (req, res) => {
@@ -555,15 +563,14 @@ exports.processRefund = async (req, res) => {
 };
 
 
-
 exports.getDamagesByDriver = async (req, res) => {
   try {
     const { driverId } = req.params;
+    const { tagNumber } = req.query;  
 
     if (!mongoose.Types.ObjectId.isValid(driverId)) {
       return res.status(400).json({ message: 'Invalid driver ID.' });
     }
-
     const bookings = await Bookform.find({ driver: driverId }, '_id');
     if (!bookings || bookings.length === 0) {
       return res.status(404).json({ message: 'No bookings found for this driver.' });
@@ -589,18 +596,24 @@ exports.getDamagesByDriver = async (req, res) => {
           if (reservationDetails && reservationDetails.vehicleId) {
             vehicleDetails = await Vehicle.findOne(
               { _id: reservationDetails.vehicleId },
-              'image vname passenger tagNumber' // Fetch only the required fields
+              'image vname passenger tagNumber' 
             );
           }
         }
-
         return {
           ...damage._doc,
-          reservationDetails: reservationDetails || null, // Embed detailed reservation information
-          vehicleDetails: vehicleDetails || null, // Embed specific vehicle details
+          reservationDetails: reservationDetails || null, 
+          vehicleDetails: vehicleDetails || null, 
         };
       })
     );
+
+    if (tagNumber) {
+      const filteredDamages = damagesWithDetails.filter(damage => 
+        damage.vehicleDetails && damage.vehicleDetails.tagNumber === tagNumber
+      );
+      return res.status(200).json({ damages: filteredDamages });
+    }
 
     return res.status(200).json({ damages: damagesWithDetails });
   } catch (error) {
@@ -608,4 +621,6 @@ exports.getDamagesByDriver = async (req, res) => {
     return res.status(500).json({ message: 'Server error.' });
   }
 };
+
+
 
