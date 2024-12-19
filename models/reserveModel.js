@@ -10,20 +10,20 @@ const reserveSchema = mongoose.Schema(
             required: false
         },
         pickdate: {
-            type: Date, 
+            type: Date,
             required: false
         },
         dropdate: {
-            type: Date,  
+            type: Date,
             required: false
         },
         days: {
             type: String,
             required: false
         },
-        vehicleId:{
-            type:String,
-            require:false
+        vehicleId: {
+            type: String,
+            require: false
         },
         transactionid: {
             type: String,
@@ -31,18 +31,18 @@ const reserveSchema = mongoose.Schema(
         },
         booking: {
             type: Boolean,
-            required: false 
+            required: false
         },
         reservation: {
             type: Boolean,
-            required: false  
+            required: false
         },
         userId: {
             type: mongoose.Schema.Types.ObjectId, // Reference to User model
             ref: 'User',  // This will reference the User model
             required: false
         },
-        accepted: {  
+        accepted: {
             type: Boolean,
             default: false
         },
@@ -50,7 +50,7 @@ const reserveSchema = mongoose.Schema(
             type: String,
             require: false
         }
-    }
+    }, { timestamps: true }
 );
 
 module.exports = mongoose.model('Reservation', reserveSchema);

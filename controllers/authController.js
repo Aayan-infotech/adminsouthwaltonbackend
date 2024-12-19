@@ -156,7 +156,7 @@ const sendEmail = async (req, res, next) => {
     user.otp = otp;
     user.otpExpiration = Date.now() + 15 * 60 * 1000;
     await user.save();
-    const ResetPasswordLink = `http://44.196.64.110:3000/reset-password?token=${otp}`;
+    const ResetPasswordLink = `http://44.196.64.110:2023/reset-password?token=${otp}`;
 
     const mailTransporter = nodemailer.createTransport({
       service: "gmail",

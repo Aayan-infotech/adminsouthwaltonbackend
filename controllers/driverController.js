@@ -11,7 +11,32 @@ const createError = require('../middleware/error');
 const createSuccess = require('../middleware/success');
 const path = require('path');
 const fs = require('fs');
+const nodemailer = require('nodemailer');
 
+const sendEmail = async (to, subject, text) => {
+    try {
+        const transporter = nodemailer.createTransport({
+            service: 'gmail', // Use your email provider
+            auth: {
+                user: process.env.EMAIL_USER, // Your email address
+                pass: process.env.EMAIL_PASS, // Your email password
+            },
+        });
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to,
+            subject,
+            text,
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log("Email sent successfully");
+    } catch (error) {
+        console.error("Error sending email:", error);
+        throw new Error("Email could not be sent");
+    }
+};
 
 
 
@@ -24,7 +49,6 @@ const createDriver = async (req, res, next) => {
 
         const { name, mobileNumber, email, password, address } = req.body;
         const images = req.fileLocations;
-
 
         if (!name) {
             return next(createError(400, "Name is required"));
@@ -54,12 +78,37 @@ const createDriver = async (req, res, next) => {
 
         const savedDriver = await newDriver.save();
 
-        return next(createSuccess(200, "Driver Registered Successfully", savedDriver));
+        // Send email to the driver with login credentials
+        const subject = 'Your Login Credentials';
+        const message = `
+        Hello ${name},
+        
+        Welcome to our app! Here are your login credentials:
+        
+        Email: ${email}
+        Password: ${password}
+        
+        Please log in to the app using these credentials.
+        
+        Regards,
+        South Walton Admin Team
+      `;
+
+        try {
+            await sendEmail(email, subject, message);
+            console.log("Email sent successfully to:", email);
+        } catch (emailError) {
+            console.error("Error sending email:", emailError);
+            return next(createError(500, "Driver created but email could not be sent"));
+        }
+
+        return next(createSuccess(200, "Driver Registered Successfully and email sent", savedDriver));
     } catch (error) {
         console.error("Error creating driver:", error);
         return next(createError(500, "Something went wrong"));
     }
 };
+
 
 
 
@@ -327,7 +376,7 @@ const getDriverBookings = async (req, res) => {
 
         // Filter bookings by bname
         const filteredBookings = driver.bookings.filter(booking => {
-            return booking.bname.toLowerCase().includes(search.toLowerCase()) && 
+            return booking.bname.toLowerCase().includes(search.toLowerCase()) &&
                 (booking.status === 'PENDING' || booking.status === 'DELIVERED');
         });
 
@@ -557,4 +606,4 @@ const getFilteredBookings = async (req, res, next) => {
 
 
 
-module.exports = { updateBookingStatus, getFilteredBookings, createDriver, assignDriverToBooking, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage, driverLogin, driverLogout, getDriverBookings,getDriverHistoryBookings };
+module.exports = { updateBookingStatus, getFilteredBookings, createDriver, assignDriverToBooking, getAllDrivers, getDriverById, updateDriverById, deleteDriver, getImage, driverLogin, driverLogout, getDriverBookings, getDriverHistoryBookings };

@@ -17,6 +17,8 @@ const vehicleSchema = new mongoose.Schema({
   ],
   image: { type: [String] },
   tagNumber: { type: String, required: true, unique: true }
+}, {
+  timestamps: true
 });
 
 module.exports = mongoose.model('Vehicle', vehicleSchema);

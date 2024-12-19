@@ -21,17 +21,37 @@ const createReservation = async (req, res) => {
 // Get all reservations
 const getAllReservations = async (req, res) => {
     try {
-        const reservations = await Reserve.find();
-       
-        res.json({
-            success: true,
-            message: 'All Reservations',
-            data: reservations,
-          });
+
+      const page = parseInt(req.query.page) || 1; 
+      const limit = parseInt(req.query.limit) || 10; 
+  
+      const skip = (page - 1) * limit;
+  
+      const totalReservations = await Reserve.countDocuments();
+  
+      const reservations = await Reserve.find()
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 });  
+  
+      const totalPages = Math.ceil(totalReservations / limit);
+  
+      res.json({
+        success: true,
+        message: 'All Reservations',
+        data: reservations,
+        pagination: {
+          totalReservations,
+          totalPages,
+          currentPage: page,
+          limit,
+        },
+      });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+      res.status(500).json({ message: error.message });
     }
-};
+  };
+  
 
 //accept
 const acceptReservation = async (req, res) => {
