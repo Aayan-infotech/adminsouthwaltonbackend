@@ -21,6 +21,7 @@ const taskRoute = require('./routes/taskRoute');
 const damageRoute = require('./routes/damageRoute');
 const reserveRoute = require('./routes/reserveRoute');
 const requestRoute = require('./routes/requestRoute')
+const customerDamagesRoutes = require('./routes/customerDamagesRoutes');
 
 const PaymentRoute = require('./routes/PaymentRoute');
 const seasonRoute = require('./routes/seasonRoute');
@@ -63,6 +64,7 @@ app.use('/api/pay', PaymentRoute);
 app.use('/api/seasons', seasonRoute);
 app.use('/api/sign', signRoutes);
 app.use('/api/feedback', feedbackRoute);
+app.use('/api/customer-damages', customerDamagesRoutes);
 // Static file serving for image uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/request',requestRoute);
