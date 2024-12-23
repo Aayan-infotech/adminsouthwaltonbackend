@@ -21,7 +21,7 @@ const getAllBookforms = async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10 } = req.query;
 
-    const payments = await Payment.find();
+    const payments = await Payment.find().sort({ createdAt: -1 });
 
     if (!payments || payments.length === 0) {
       return res.status(404).json({ message: 'No payments found' });

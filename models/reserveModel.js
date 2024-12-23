@@ -37,11 +37,6 @@ const reserveSchema = mongoose.Schema(
             type: Boolean,
             required: false
         },
-        userId: {
-            type: mongoose.Schema.Types.ObjectId, // Reference to User model
-            ref: 'User',  // This will reference the User model
-            required: false
-        },
         accepted: {
             type: Boolean,
             default: false

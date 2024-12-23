@@ -274,94 +274,103 @@ exports.sendDamageReport = async (req, res) => {
 
 exports.getDamages = async (req, res) => {
   try {
-
-    const { page = 1, limit = 10 } = req.query;
-
+    const { page = 1, limit = 10, search = '' } = req.query;
 
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
 
+    // Create search filter for tagNumber and vname
+    const searchFilter = search
+      ? {
+          $or: [
+            { 'vehicleDetails.tagNumber': { $regex: search, $options: 'i' } },
+            { 'vehicleDetails.vname': { $regex: search, $options: 'i' } },
+          ],
+        }
+      : {};
 
-    const totalDamages = await Damage.countDocuments();
-
-
-    const damages = await Damage.find()
+    // Fetch all damages with related details
+    const allDamages = await Damage.find()
       .sort({ createdAt: -1 })
-      .skip((pageNumber - 1) * limitNumber)
-      .limit(limitNumber);
+      .lean(); // Use lean for better performance
 
-
-    const damageDetails = await Promise.all(
-      damages.map(async (damage) => {
+    // Enrich damages with related details
+    const enrichedDamages = await Promise.all(
+      allDamages.map(async (damage) => {
         const bookingDetails = await Bookform.findById(damage.bookingId);
-
         const paymentDetails = await Payment.findById(damage.paymentId);
 
         const reservationDetails = paymentDetails && paymentDetails.reservation
-          ? await Reserve.findOne({ _id: paymentDetails.reservation })
+          ? await Reserve.findById(paymentDetails.reservation)
           : null;
 
         const vehicle = reservationDetails
           ? await Vehicle.findById(reservationDetails.vehicleId)
           : null;
 
-
         const vehicleDetails = vehicle
           ? {
-            vname: vehicle.vname,
-            passenger: vehicle.passenger,
-            image: vehicle.image,
-            tagNumber: vehicle.tagNumber
-          }
+              vname: vehicle.vname,
+              passenger: vehicle.passenger,
+              image: vehicle.image,
+              tagNumber: vehicle.tagNumber,
+            }
           : null;
 
         return {
-          ...damage.toObject(),
-          images: damage.images,
+          ...damage,
           bookingDetails: bookingDetails
             ? {
-              bname: bookingDetails.bname,
-              bphone: bookingDetails.bphone,
-              bemail: bookingDetails.bemail,
-              baddress: bookingDetails.baddress,
-              baddressh: bookingDetails.baddressh,
-            }
+                bname: bookingDetails.bname,
+                bphone: bookingDetails.bphone,
+                bemail: bookingDetails.bemail,
+                baddress: bookingDetails.baddress,
+                baddressh: bookingDetails.baddressh,
+              }
             : null,
-          vehicleDetails: vehicleDetails
-            ? {
-              vname: vehicleDetails.vname,
-              passenger: vehicleDetails.passenger,
-              image: vehicleDetails.image,
-              tagNumber: vehicleDetails.tagNumber
-            }
-            : null,
+          vehicleDetails,
           reservationDetails: reservationDetails
             ? {
-              pickup: reservationDetails.pickup,
-              drop: reservationDetails.drop,
-              pickdate: reservationDetails.pickdate,
-              dropdate: reservationDetails.dropdate,
-              days: reservationDetails.days,
-              vehicleid: reservationDetails.vehicleid,
-              transactionid: reservationDetails.transactionid,
-              booking: reservationDetails.booking,
-              reservation: reservationDetails.reservation,
-              userId: reservationDetails.userId,
-              accepted: reservationDetails.accepted,
-            }
+                pickup: reservationDetails.pickup,
+                drop: reservationDetails.drop,
+                pickdate: reservationDetails.pickdate,
+                dropdate: reservationDetails.dropdate,
+                days: reservationDetails.days,
+                vehicleId: reservationDetails.vehicleId,
+                transactionId: reservationDetails.transactionId,
+                booking: reservationDetails.booking,
+                reservation: reservationDetails.reservation,
+                userId: reservationDetails.userId,
+                accepted: reservationDetails.accepted,
+              }
             : null,
         };
       })
     );
 
+    // Apply search filter
+    const filteredDamages = enrichedDamages.filter((damage) =>
+      search
+        ? damage.vehicleDetails &&
+          (damage.vehicleDetails.tagNumber?.toLowerCase().includes(search.toLowerCase()) ||
+            damage.vehicleDetails.vname?.toLowerCase().includes(search.toLowerCase()))
+        : true
+    );
+
+    // Paginate filtered damages
+    const paginatedDamages = filteredDamages.slice(
+      (pageNumber - 1) * limitNumber,
+      pageNumber * limitNumber
+    );
+
     res.json({
       success: true,
       message: 'Damages retrieved successfully',
-      data: damageDetails,
+      data: paginatedDamages,
       pagination: {
         currentPage: pageNumber,
-        totalPages: Math.ceil(totalDamages / limitNumber),
-        totalItems: totalDamages,
+        totalPages: Math.ceil(filteredDamages.length / limitNumber),
+        totalItems: filteredDamages.length,
         itemsPerPage: limitNumber,
       },
     });
@@ -373,6 +382,7 @@ exports.getDamages = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -571,6 +581,7 @@ exports.getDamagesByDriver = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(driverId)) {
       return res.status(400).json({ message: 'Invalid driver ID.' });
     }
+
     const bookings = await Bookform.find({ driver: driverId }, '_id');
     if (!bookings || bookings.length === 0) {
       return res.status(404).json({ message: 'No bookings found for this driver.' });
@@ -608,19 +619,20 @@ exports.getDamagesByDriver = async (req, res) => {
       })
     );
 
-    if (tagNumber) {
-      const filteredDamages = damagesWithDetails.filter(damage => 
-        damage.vehicleDetails && damage.vehicleDetails.tagNumber === tagNumber
-      );
-      return res.status(200).json({ damages: filteredDamages });
-    }
+    // Filter damages by tagNumber if provided (starting letters match)
+    const filteredDamages = tagNumber
+      ? damagesWithDetails.filter(damage => 
+          damage.vehicleDetails && damage.vehicleDetails.tagNumber && damage.vehicleDetails.tagNumber.startsWith(tagNumber)
+        )
+      : damagesWithDetails;
 
-    return res.status(200).json({ damages: damagesWithDetails });
+    return res.status(200).json({ damages: filteredDamages });
   } catch (error) {
     console.error('Error fetching damages:', error);
     return res.status(500).json({ message: 'Server error.' });
   }
 };
+
 
 
 
