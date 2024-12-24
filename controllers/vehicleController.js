@@ -95,9 +95,13 @@ exports.getVehicles = async (req, res) => {
 
 
     const searchQuery = search
-      ? { vname: { $regex: search, $options: "i" } }
-      : {};
-
+      ? {
+          $or: [
+            { vname: { $regex: search, $options: "i" } }, 
+            { tagNumber: { $regex: search, $options: "i" } } 
+          ]
+        }
+      : {}; 
 
     const vehicles = await Vehicle.find(searchQuery)
       .sort({ createdAt: -1 })

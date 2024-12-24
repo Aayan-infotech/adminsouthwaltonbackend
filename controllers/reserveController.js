@@ -6,7 +6,7 @@ const router = express.Router();
 const Payment = require('../models/PaymentModel'); 
 const nodemailer = require('nodemailer');
 const User = require('../models/userModel');
-
+const Vehicle = require("../models/vehicleModel");
 // Create a new reservation
 const createReservation = async (req, res) => {
     try {
@@ -20,38 +20,77 @@ const createReservation = async (req, res) => {
 
 // Get all reservations
 const getAllReservations = async (req, res) => {
-    try {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const searchQuery = req.query.search || ''; 
 
-      const page = parseInt(req.query.page) || 1; 
-      const limit = parseInt(req.query.limit) || 10; 
-  
-      const skip = (page - 1) * limit;
-  
-      const totalReservations = await Reserve.countDocuments();
-  
-      const reservations = await Reserve.find()
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 });  
-  
-      const totalPages = Math.ceil(totalReservations / limit);
-  
-      res.json({
-        success: true,
-        message: 'All Reservations',
-        data: reservations,
-        pagination: {
-          totalReservations,
-          totalPages,
-          currentPage: page,
-          limit,
-        },
-      });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
-  
+    const skip = (page - 1) * limit;
+
+    const vehicleFilter = searchQuery
+      ? {
+          $or: [
+            { vname: { $regex: searchQuery, $options: 'i' } },
+            { tagNumber: { $regex: searchQuery, $options: 'i' } }
+          ]
+        }
+      : {};
+    const vehicles = await Vehicle.find(vehicleFilter).select('_id');
+
+    const vehicleIds = vehicles.map(vehicle => vehicle._id);
+
+    const reservations = await Reserve.find({
+      vehicleId: { $in: vehicleIds }, 
+      reserveAmount: { $ne: null },
+    })
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const enrichedReservations = await Promise.all(
+      reservations.map(async (reservation) => {
+        if (reservation.vehicleId) {
+          const vehicleDetails = await Vehicle.findOne({ _id: reservation.vehicleId })
+            .select('vname tagNumber passenger image');
+
+          return {
+            ...reservation.toObject(),
+            vehicleDetails,
+          };
+        }
+
+        return reservation.toObject();
+      })
+    );
+
+    const totalReservations = await Reserve.countDocuments({
+      vehicleId: { $in: vehicleIds }, 
+      reserveAmount: { $ne: null }, 
+    });
+
+    const totalPages = Math.ceil(totalReservations / limit);
+
+    res.json({
+      success: true,
+      message: 'All Reservations',
+      data: enrichedReservations,
+      pagination: {
+        totalReservations,
+        totalPages,
+        currentPage: page,
+        limit,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+
+
+
 
 //accept
 const acceptReservation = async (req, res) => {

@@ -23,7 +23,8 @@ const reserveSchema = mongoose.Schema(
         },
         vehicleId: {
             type: String,
-            require: false
+            require: false,
+            default: null, 
         },
         transactionid: {
             type: String,
@@ -43,7 +44,8 @@ const reserveSchema = mongoose.Schema(
         },
         reserveAmount: {
             type: String,
-            require: false
+            require: false,
+            default: null, 
         }
     }, { timestamps: true }
 );
