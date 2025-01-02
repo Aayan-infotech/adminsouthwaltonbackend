@@ -19,8 +19,9 @@ const createBookform = async (req, res) => {
 // Get all 
 const getAllBookforms = async (req, res) => {
   try {
-    const payments = await Payment.find();
-    console.log('Payments:', payments);
+    const { search = '', page = 1, limit = 10 } = req.query;
+
+    const payments = await Payment.find().sort({ createdAt: -1 });
 
     if (!payments || payments.length === 0) {
       return res.status(404).json({ message: 'No payments found' });
@@ -29,24 +30,20 @@ const getAllBookforms = async (req, res) => {
     const allBookforms = await Promise.all(
       payments.map(async (payment) => {
         try {
-         
-
-          // Fetch reservation and booking data
           const reservation = await Reserve.findById(payment.reservation);
           if (!reservation) {
             console.log(`Reservation not found for Payment ID: ${payment._id}`);
-            return null;  // Skip to the next payment
+            return null;
           }
 
           const booking = await Bookform.findById(payment.bookingId)
-            .populate('driver') // Populate the driver details
-            .populate('customerDrivers'); // Include customerDrivers in the response
+            .populate('driver')
+            .populate('customerDrivers');
           if (!booking) {
             console.log(`Booking not found for Payment ID: ${payment._id}`);
-            return null;  // Skip to the next payment
+            return null;
           }
 
-          // Return the details if both reservation and booking are found
           return {
             paymentId: payment._id,
             userId: payment.userId,
@@ -72,17 +69,39 @@ const getAllBookforms = async (req, res) => {
           };
         } catch (err) {
           console.log(`Error fetching data for Payment ID: ${payment._id} - ${err.message}`);
-          return null;  // Skip to the next payment
+          return null;
         }
       })
     );
 
-    const successfulBookforms = allBookforms.filter((form) => form !== null);  // Filter out errors
-    return res.status(200).json(successfulBookforms);
+    const successfulBookforms = allBookforms.filter((form) => form !== null);
+
+    // Filter by bemail if search is provided
+    const filteredBookforms = search
+      ? successfulBookforms.filter((form) =>
+          form.bookingDetails.bemail.toLowerCase().includes(search.toLowerCase())
+        )
+      : successfulBookforms;
+
+    // Pagination
+    const total = filteredBookforms.length;
+    const paginatedBookforms = filteredBookforms.slice(
+      (page - 1) * limit,
+      page * limit
+    );
+
+    return res.status(200).json({
+      total,
+      currentPage: Number(page),
+      totalPages: Math.ceil(total / limit),
+      data: paginatedBookforms,
+    });
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
+
 
 // Get a specific booking form by ID
 const getBookformById = async (req, res) => {

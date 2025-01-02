@@ -13,4 +13,5 @@ router.delete('/:id', damageController.deleteDamage);
 router.post('/refund/:id', damageController.processRefund);
 router.post('/send-damage-report', damageController.sendDamageReport);
 router.get('/getpdf/send-damage-report', damageController.sendDamageReport);
+router.get('/damageList/:driverId', damageController.getDamagesByDriver);
 module.exports = router;

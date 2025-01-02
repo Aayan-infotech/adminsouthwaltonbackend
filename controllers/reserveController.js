@@ -3,9 +3,10 @@ const mongoose = require('mongoose');
 const Reserve = require('../models/reserveModel');
 const Bookform = require('../models/checkoutModel');
 const router = express.Router();
+const Payment = require('../models/PaymentModel'); 
 const nodemailer = require('nodemailer');
 const User = require('../models/userModel');
-
+const Vehicle = require("../models/vehicleModel");
 // Create a new reservation
 const createReservation = async (req, res) => {
     try {
@@ -19,40 +20,98 @@ const createReservation = async (req, res) => {
 
 // Get all reservations
 const getAllReservations = async (req, res) => {
-    try {
-        const reservations = await Reserve.find();
-       
-        res.json({
-            success: true,
-            message: 'All Reservations',
-            data: reservations,
-          });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const searchQuery = req.query.search || ''; 
+
+    const skip = (page - 1) * limit;
+
+    const vehicleFilter = searchQuery
+      ? {
+          $or: [
+            { vname: { $regex: searchQuery, $options: 'i' } },
+            { tagNumber: { $regex: searchQuery, $options: 'i' } }
+          ]
+        }
+      : {};
+    const vehicles = await Vehicle.find(vehicleFilter).select('_id');
+
+    const vehicleIds = vehicles.map(vehicle => vehicle._id);
+
+    const reservations = await Reserve.find({
+      vehicleId: { $in: vehicleIds }, 
+      reserveAmount: { $ne: null },
+    })
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 });
+
+    const enrichedReservations = await Promise.all(
+      reservations.map(async (reservation) => {
+        if (reservation.vehicleId) {
+          const vehicleDetails = await Vehicle.findOne({ _id: reservation.vehicleId })
+            .select('vname tagNumber passenger image');
+
+          return {
+            ...reservation.toObject(),
+            vehicleDetails,
+          };
+        }
+
+        return reservation.toObject();
+      })
+    );
+
+    const totalReservations = await Reserve.countDocuments({
+      vehicleId: { $in: vehicleIds }, 
+      reserveAmount: { $ne: null }, 
+    });
+
+    const totalPages = Math.ceil(totalReservations / limit);
+
+    res.json({
+      success: true,
+      message: 'All Reservations',
+      data: enrichedReservations,
+      pagination: {
+        totalReservations,
+        totalPages,
+        currentPage: page,
+        limit,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
+
+
+
+
+
+
 
 //accept
 const acceptReservation = async (req, res) => {
     try {
-        const { id } = req.params; // Get reservation ID from request parameters
+        const { id } = req.params; 
         const reservation = await Reserve.findById(id);
 
         if (!reservation) {
             return res.status(404).json({ message: "Reservation not found" });
         }
-
-        // Update reservation status to accepted
-        reservation.booking = true; // Set booking status as accepted
+        reservation.booking = true; 
         await reservation.save();
+        const payment = await Payment.findOne({ reservation: id });
+        if (!payment) {
+            return res.status(404).json({ message: "Payment record not found for this reservation." });
+        }
 
-        // Fetch user email from the userId
-        const user = await User.findById(reservation.userId);
+        const user = await User.findById(payment.userId);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
-
-        // Send email notification
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
@@ -63,7 +122,7 @@ const acceptReservation = async (req, res) => {
 
         const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: user.email, // User email from the database
+            to: user.email, 
             subject: 'Reservation Accepted',
             text: `Your reservation with ID ${id} has been accepted. Kindly continue with your booking. Thank you!`
         };

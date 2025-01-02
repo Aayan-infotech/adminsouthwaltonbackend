@@ -3,8 +3,10 @@ const mongoose = require('mongoose');
 
 const signSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    signatureData: { type: String, required: true }, // Stores the signature as a base64 encoded string
-   
+    image: { type: String, required: false },
+    pdf: { type: String, required: false }
+}, {
+    timestamps: true
 });
 
 module.exports = mongoose.model('Sign', signSchema);

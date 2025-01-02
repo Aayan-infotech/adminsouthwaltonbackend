@@ -26,11 +26,6 @@ const BookformSchema = new Schema({
     customerDrivers: [CustomerDriverSchema]
 }, { timestamps: true });
 
-BookformSchema.pre('save', async function (next) {
-    if (this.isModified('status') && this.status === 'COMPLETED') {
-        await this.remove();
-    }
-    next();
-});
+
 
 module.exports = mongoose.model('Bookform', BookformSchema);

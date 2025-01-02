@@ -56,8 +56,6 @@ const getStatus = async (req, res, next) => {
   try {
     const { email } = req.params;
 
-    // Log the incoming email to verify it's correct
-    console.log("Received email:", email);
 
     // Search for the user by the exact email provided
     const user = await User.findOne({ email });
@@ -67,8 +65,6 @@ const getStatus = async (req, res, next) => {
       return next(createError(404, "User Not Found"));
     }
 
-    // Log the user data for debugging
-    console.log("User found:", user);
 
     return next(createSuccess(200, "User status retrieved", { isActive: user.isActive }));
   } catch (error) {
@@ -81,12 +77,45 @@ const getStatus = async (req, res, next) => {
 // Get all users
 const getAllUsers = async (req, res, next) => {
   try {
-    const allUsers = await User.find();
-    return next(createSuccess(200, "All Users", allUsers));
+    const { page = 1, limit = 10, query = "" } = req.query;
+
+    // Convert page and limit to numbers
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    // Create a search filter
+    const searchFilter = query
+      ? {
+        $or: [
+          { fullName: { $regex: query, $options: "i" } },
+          { email: { $regex: query, $options: "i" } },
+          { phoneNumber: { $regex: query, $options: "i" } },
+          { state: { $regex: query, $options: "i" } }
+        ]
+      }
+      : {};
+
+    // Calculate total count and fetch users with pagination and search
+    const totalUsers = await User.countDocuments(searchFilter);
+    const users = await User.find(searchFilter)
+      .sort({ createdAt: -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    // Prepare response
+    const response = {
+      totalUsers,
+      currentPage: pageNumber,
+      totalPages: Math.ceil(totalUsers / limitNumber),
+      users,
+    };
+
+    return next(createSuccess(200, "All Users", response));
   } catch (error) {
     return next(createError(500, "Internal Server Error!"));
   }
 };
+
 
 // Get user by ID
 const getUserById = async (req, res, next) => {
@@ -144,4 +173,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { register, getAllUsers,getStatus, getUserById, updateUser, deleteUser, activate };
+module.exports = { register, getAllUsers, getStatus, getUserById, updateUser, deleteUser, activate };

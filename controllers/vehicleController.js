@@ -3,14 +3,17 @@ const mongoose = require('mongoose');
 
 // Create 
 exports.createVehicle = async (req, res) => {
-  const { vname, passenger, vprice } = req.body;
+  const { vname, passenger, vprice, tagNumber } = req.body;
   const images = req.fileLocations;
 
   try {
-    if (!vname || !passenger || !vprice) {
+    if (!vname || !passenger || !vprice || !tagNumber) {
       return res.status(400).json({ message: "Missing required fields" });
     }
-
+    const existingVehicle = await Vehicle.findOne({ tagNumber });
+    if (existingVehicle) {
+      return res.status(400).json({ message: 'Tag number already exists' });
+    }
     // Parse vprice from the request body (assuming it's an array of objects)
     const parsedVPrice = JSON.parse(vprice);
 
@@ -24,6 +27,7 @@ exports.createVehicle = async (req, res) => {
       passenger,
       vprice: parsedVPrice, // Save parsed vprice
       image: images,
+      tagNumber
     });
 
     const newVehicle = await vehicleEntry.save();
@@ -35,19 +39,23 @@ exports.createVehicle = async (req, res) => {
       passenger: newVehicle.passenger,
       vprice: newVehicle.vprice,
       image: newVehicle.image,
+      tagNumber: newVehicle.tagNumber,
       createdAt: newVehicle.createdAt,
       updatedAt: newVehicle.updatedAt,
     });
   } catch (err) {
     console.error("Error creating vehicle:", err);
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.tagNumber) {
+      return res.status(400).json({ message: 'Tag number must be unique' });
+    }
     res.status(400).json({ message: err.message });
   }
 };
 
 // Update 
 exports.updateVehicle = async (req, res) => {
-  const { vname, passenger, vprice } = req.body;
-  const updateData = { vname, passenger }; // Do not include damagePrice
+  const { vname, passenger, vprice, tagNumber } = req.body;
+  const updateData = { vname, passenger, tagNumber }; // Do not include damagePrice
 
   try {
     const existingVehicle = await Vehicle.findById(req.params.id);
@@ -83,20 +91,43 @@ exports.updateVehicle = async (req, res) => {
 // getAll
 exports.getVehicles = async (req, res) => {
   try {
-    let vehicles = await Vehicle.find();
+    const { page = 1, limit = 10, search = "" } = req.query;
 
-    // Format the response if needed
-    const formattedVehicles = vehicles.map(vehicle => ({
+
+    const searchQuery = search
+      ? {
+          $or: [
+            { vname: { $regex: search, $options: "i" } }, 
+            { tagNumber: { $regex: search, $options: "i" } } 
+          ]
+        }
+      : {}; 
+
+    const vehicles = await Vehicle.find(searchQuery)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+
+    const totalCount = await Vehicle.countDocuments(searchQuery);
+
+    const formattedVehicles = vehicles.map((vehicle) => ({
       ...vehicle.toObject(),
       image: vehicle.image,
     }));
 
-    res.status(200).json(formattedVehicles);
+    res.status(200).json({
+      vehicles: formattedVehicles,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: Number(page),
+      totalCount,
+    });
   } catch (err) {
     console.error("Error fetching vehicles:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
 
 // Delete 
 exports.deleteVehicle = async (req, res) => {
@@ -116,16 +147,16 @@ exports.deleteVehicle = async (req, res) => {
 exports.getVehiclesBySeasonAndDay = async (req, res) => {
   const { season, day } = req.query;
 
- 
+
   if (!season || !day) {
     return res.status(400).json({ message: "Season and day are required" });
   }
 
   try {
-   
+
     const vehicles = await Vehicle.find({
-      "vprice.season": season, 
-      "vprice.day": day,       
+      "vprice.season": season,
+      "vprice.day": day,
     });
 
     if (vehicles.length === 0) {
@@ -145,6 +176,7 @@ exports.getVehiclesBySeasonAndDay = async (req, res) => {
         day,
         price: priceEntry ? priceEntry.price : null,
         image: vehicle.image,
+        tagNumber: vehicle.tagNumber
       };
     });
 
@@ -185,6 +217,7 @@ exports.getVehiclePrice = async (req, res) => {
         _id: vehicle._id,
         vehicleID: vehicle.vehicleID,
         vname: vehicle.vname,
+        tagNumber: vehicle.tagNumber,
         season: season,
         day: day,
         price: priceEntry.price,
@@ -200,6 +233,23 @@ exports.getVehiclePrice = async (req, res) => {
   }
 };
 
+
+
+exports.getVehicleById = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const vehicle = await Vehicle.findById(id).select("vname passenger tagNumber");
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    }
+    res.status(200).json(vehicle);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 

@@ -26,11 +26,10 @@ const upload = multer({ storage: storage });
 // Create Damage Record
 exports.createDamage = async (req, res) => {
   try {
-    const { paymentId, damage } = req.body;
-    const images = req.fileLocations;
+    const { paymentId } = req.body;
+    const images = req.fileLocations; 
     const objectIdPaymentId = new ObjectId(paymentId);
 
-    // Fetch the payment record using paymentId
     const payment = await Payment.findById(objectIdPaymentId);
     if (!payment) {
       return res.status(404).json({
@@ -56,6 +55,14 @@ exports.createDamage = async (req, res) => {
       });
     }
 
+    // Check if booking status is 'DELIVERED'
+    if (bookingDetails.status !== 'COMPLETED') {
+      return res.status(400).json({
+        success: false,
+        message: `Damage record can only be created if the booking status is 'COMPLETED'. Current status: ${bookingDetails.status}`,
+      });
+    }
+
     const { amount, reservation } = payment;
     if (!reservation) {
       return res.status(400).json({
@@ -64,7 +71,6 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch the Reservation details to get vehicleId
     const reservationDetails = await Reserve.findById(reservation);
     if (!reservationDetails) {
       return res.status(404).json({
@@ -81,7 +87,6 @@ exports.createDamage = async (req, res) => {
       });
     }
 
-    // Fetch vehicle details using vehicleId
     const vehicleDetails = await Vehicle.findById(vehicleId);
     if (!vehicleDetails) {
       return res.status(404).json({
@@ -90,6 +95,8 @@ exports.createDamage = async (req, res) => {
       });
     }
 
+    // Determine damage status based on the presence of images
+    const damage = images && images.length > 0 ? true : false;
 
     const newDamage = new Damage({
       paymentId,
@@ -101,7 +108,7 @@ exports.createDamage = async (req, res) => {
 
     const savedDamage = await newDamage.save();
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'Damage record created successfully',
       data: {
@@ -125,12 +132,11 @@ exports.createDamage = async (req, res) => {
           drop: reservationDetails.drop,
           pickdate: reservationDetails.pickdate,
           dropdate: reservationDetails.dropdate,
-
         },
         vehicleDetails: {
           vname: vehicleDetails.vname,
           vseats: vehicleDetails.passenger,
-
+          tagNumber: vehicleDetails.tagNumber,
         },
       },
     });
@@ -143,6 +149,8 @@ exports.createDamage = async (req, res) => {
     });
   }
 };
+
+
 
 
 exports.sendDamageReport = async (req, res) => {
@@ -236,6 +244,7 @@ exports.sendDamageReport = async (req, res) => {
       // Add Vehicle Details
       doc.fontSize(14).text('Vehicle Details', { underline: true });
       doc.fontSize(12).text(`Vehicle Name: ${vehicleDetails.vname}`);
+      doc.fontSize(12).text(`Tag Number: ${vehicleDetails.tagNumber}`);
       doc.text(`Seats: ${vehicleDetails.passenger}`);
       doc.text(`Vehicle ID: ${vehicleDetails._id}`);
       doc.moveDown();
@@ -261,140 +270,109 @@ exports.sendDamageReport = async (req, res) => {
   }
 };
 
-// getAll
-// exports.getDamages = async (req, res) => {
-//   try {
 
-//     const damages = await Damage.find();
-
-//     const damageDetails = await Promise.all(
-//       damages.map(async (damage) => {
-//         const bookingDetails = await Bookform.findById(damage.bookingId);
-//         const vehicleDetails = bookingDetails ? await Vehicle.findById(bookingDetails.vehicleId) : null;
-
-//         const paymentDetails = await Payment.findById(damage.paymentId);
-
-//         const reservationDetails = paymentDetails && paymentDetails.reservation
-//           ? await Reserve.findOne({ _id: paymentDetails.reservation })
-//           : null;
-
-//         return {
-//           ...damage.toObject(),
-//           bookingDetails: bookingDetails
-//             ? {
-//                 bname: bookingDetails.bname,
-//                 bphone: bookingDetails.bphone,
-//                 bemail: bookingDetails.bemail,
-//                 baddress: bookingDetails.baddress,
-//                 baddressh: bookingDetails.baddressh,
-//               }
-//             : null,
-//           vehicleDetails: vehicleDetails
-//             ? {
-//                 vname: vehicleDetails.vname,
-//                 vseats: vehicleDetails.vseats,
-//                 vprice: vehicleDetails.vprice,
-//               }
-//             : null,
-//           reservationDetails: reservationDetails
-//             ? {
-//                 pickup: reservationDetails.pickup,
-//                 drop: reservationDetails.drop,
-//                 pickdate: reservationDetails.pickdate,
-//                 dropdate: reservationDetails.dropdate,
-//                 days: reservationDetails.days,
-//                 vehicleid: reservationDetails.vehicleid,
-//                 transactionid: reservationDetails.transactionid,
-//                 booking: reservationDetails.booking,
-//                 reservation: reservationDetails.reservation,
-//                 userId: reservationDetails.userId,
-//                 accepted: reservationDetails.accepted,
-//               }
-//             : null,
-//         };
-//       })
-//     );
-
-//     res.json({
-//       success: true,
-//       message: 'Damages retrieved successfully',
-//       data: damageDetails,
-//     });
-//   } catch (err) {
-//     console.log(err);
-//     res.status(500).json({
-//       success: false,
-//       message: err.message,
-//     });
-//   }
-// };
 
 exports.getDamages = async (req, res) => {
   try {
-    const damages = await Damage.find();
+    const { page = 1, limit = 10, search = '' } = req.query;
 
-    const damageDetails = await Promise.all(
-      damages.map(async (damage) => {
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+
+    // Create search filter for tagNumber and vname
+    const searchFilter = search
+      ? {
+          $or: [
+            { 'vehicleDetails.tagNumber': { $regex: search, $options: 'i' } },
+            { 'vehicleDetails.vname': { $regex: search, $options: 'i' } },
+          ],
+        }
+      : {};
+
+    // Fetch all damages with related details
+    const allDamages = await Damage.find()
+      .sort({ createdAt: -1 })
+      .lean(); // Use lean for better performance
+
+    // Enrich damages with related details
+    const enrichedDamages = await Promise.all(
+      allDamages.map(async (damage) => {
         const bookingDetails = await Bookform.findById(damage.bookingId);
-
         const paymentDetails = await Payment.findById(damage.paymentId);
 
         const reservationDetails = paymentDetails && paymentDetails.reservation
-          ? await Reserve.findOne({ _id: paymentDetails.reservation })
+          ? await Reserve.findById(paymentDetails.reservation)
           : null;
 
-        const vehicle = reservationDetails ? await Vehicle.findById(reservationDetails.vehicleId) : null;
+        const vehicle = reservationDetails
+          ? await Vehicle.findById(reservationDetails.vehicleId)
+          : null;
 
-        // Select specific keys ('vname', 'vseats', 'image')
-        const vehicleDetails = vehicle ? {
-          vname: vehicle.vname,
-          passenger: vehicle.passenger,
-          image: vehicle.image
-        } : null;
-
+        const vehicleDetails = vehicle
+          ? {
+              vname: vehicle.vname,
+              passenger: vehicle.passenger,
+              image: vehicle.image,
+              tagNumber: vehicle.tagNumber,
+            }
+          : null;
 
         return {
-          ...damage.toObject(),
-          images: damage.images, // Adding image handling
+          ...damage,
           bookingDetails: bookingDetails
             ? {
-              bname: bookingDetails.bname,
-              bphone: bookingDetails.bphone,
-              bemail: bookingDetails.bemail,
-              baddress: bookingDetails.baddress,
-              baddressh: bookingDetails.baddressh,
-            }
+                bname: bookingDetails.bname,
+                bphone: bookingDetails.bphone,
+                bemail: bookingDetails.bemail,
+                baddress: bookingDetails.baddress,
+                baddressh: bookingDetails.baddressh,
+              }
             : null,
-          vehicleDetails: vehicleDetails
-            ? {
-              vname: vehicleDetails.vname,
-              passenger: vehicleDetails.passenger,
-              image: vehicleDetails.image,
-            }
-            : null,
+          vehicleDetails,
           reservationDetails: reservationDetails
             ? {
-              pickup: reservationDetails.pickup,
-              drop: reservationDetails.drop,
-              pickdate: reservationDetails.pickdate,
-              dropdate: reservationDetails.dropdate,
-              days: reservationDetails.days,
-              vehicleid: reservationDetails.vehicleid,
-              transactionid: reservationDetails.transactionid,
-              booking: reservationDetails.booking,
-              reservation: reservationDetails.reservation,
-              userId: reservationDetails.userId,
-              accepted: reservationDetails.accepted,
-            }
+                pickup: reservationDetails.pickup,
+                drop: reservationDetails.drop,
+                pickdate: reservationDetails.pickdate,
+                dropdate: reservationDetails.dropdate,
+                days: reservationDetails.days,
+                vehicleId: reservationDetails.vehicleId,
+                transactionId: reservationDetails.transactionId,
+                booking: reservationDetails.booking,
+                reservation: reservationDetails.reservation,
+                userId: reservationDetails.userId,
+                accepted: reservationDetails.accepted,
+              }
             : null,
         };
       })
     );
 
+    // Apply search filter
+    const filteredDamages = enrichedDamages.filter((damage) =>
+      search
+        ? damage.vehicleDetails &&
+          (damage.vehicleDetails.tagNumber?.toLowerCase().includes(search.toLowerCase()) ||
+            damage.vehicleDetails.vname?.toLowerCase().includes(search.toLowerCase()))
+        : true
+    );
+
+    // Paginate filtered damages
+    const paginatedDamages = filteredDamages.slice(
+      (pageNumber - 1) * limitNumber,
+      pageNumber * limitNumber
+    );
+
     res.json({
       success: true,
       message: 'Damages retrieved successfully',
-      data: damageDetails,
+      data: paginatedDamages,
+      pagination: {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(filteredDamages.length / limitNumber),
+        totalItems: filteredDamages.length,
+        itemsPerPage: limitNumber,
+      },
     });
   } catch (err) {
     console.log(err);
@@ -404,6 +382,8 @@ exports.getDamages = async (req, res) => {
     });
   }
 };
+
+
 
 
 // GetbyID 
@@ -433,6 +413,7 @@ exports.getDamageById = async (req, res) => {
     // Select specific keys ('vname', 'vseats', 'image')
     const vehicleDetails = vehicle ? {
       vname: vehicle.vname,
+      tagNumber: vehicle.tagNumber,
       passenger: vehicle.passenger,
       image: vehicle.image
     } : null;
@@ -452,6 +433,7 @@ exports.getDamageById = async (req, res) => {
         } : null,
         vehicleDetails: vehicleDetails ? {
           vname: vehicleDetails.vname,
+          tagNumber: vehicleDetails.tagNumber,
           passenger: vehicleDetails.passenger,
           image: vehicleDetails.image,
         } : null,
@@ -574,7 +556,6 @@ exports.processRefund = async (req, res) => {
       amount: Math.floor(0.25 * paymentIntent.amount_received),
     });
 
-    console.log(refund)
 
     res.status(200).json({
       success: true,
@@ -590,5 +571,68 @@ exports.processRefund = async (req, res) => {
     });
   }
 };
+
+
+exports.getDamagesByDriver = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+    const { tagNumber } = req.query;  
+
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({ message: 'Invalid driver ID.' });
+    }
+
+    const bookings = await Bookform.find({ driver: driverId }, '_id');
+    if (!bookings || bookings.length === 0) {
+      return res.status(404).json({ message: 'No bookings found for this driver.' });
+    }
+
+    const bookingIds = bookings.map((booking) => booking._id);
+
+    const damages = await Damage.find({ bookingId: { $in: bookingIds } });
+
+    if (!damages || damages.length === 0) {
+      return res.status(404).json({ message: 'No damages found for this driver.' });
+    }
+
+    const damagesWithDetails = await Promise.all(
+      damages.map(async (damage) => {
+        const payment = await Payment.findOne({ _id: damage.paymentId }, 'reservation');
+        let reservationDetails = null;
+        let vehicleDetails = null;
+
+        if (payment && payment.reservation) {
+          reservationDetails = await Reserve.findOne({ _id: payment.reservation });
+
+          if (reservationDetails && reservationDetails.vehicleId) {
+            vehicleDetails = await Vehicle.findOne(
+              { _id: reservationDetails.vehicleId },
+              'image vname passenger tagNumber' 
+            );
+          }
+        }
+        return {
+          ...damage._doc,
+          reservationDetails: reservationDetails || null, 
+          vehicleDetails: vehicleDetails || null, 
+        };
+      })
+    );
+
+    // Filter damages by tagNumber if provided (starting letters match)
+    const filteredDamages = tagNumber
+      ? damagesWithDetails.filter(damage => 
+          damage.vehicleDetails && damage.vehicleDetails.tagNumber && damage.vehicleDetails.tagNumber.startsWith(tagNumber)
+        )
+      : damagesWithDetails;
+
+    return res.status(200).json({ damages: filteredDamages });
+  } catch (error) {
+    console.error('Error fetching damages:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+
 
 

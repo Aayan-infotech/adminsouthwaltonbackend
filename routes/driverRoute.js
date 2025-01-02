@@ -1,7 +1,7 @@
 const express = require("express");
 const Driver = require('../models/driverModel');
 const {
-  getFilteredBookings ,
+  getFilteredBookings,
   updateBookingStatus,
   createDriver,
   assignDriverToBooking,
@@ -12,19 +12,21 @@ const {
   deleteDriver,
   getImage,
   driverLogin,
-  driverLogout
+  driverLogout,
+  getDriverHistoryBookings
+
 } = require('../controllers/driverController');
 const { verifyAdmin } = require('../middleware/verifyToken');
 const router = express.Router();
 const upload = require('../middleware/upload');
-const { uploadToS3 } = require("../controllers/commonController"); 
+const { uploadToS3 } = require("../controllers/commonController");
 
-router.post('/add', uploadToS3, verifyAdmin, createDriver); 
-router.get('/', verifyAdmin, getAllDrivers);  
-router.get('/:id', verifyAdmin, getDriverById); 
-router.put('/:id', uploadToS3, verifyAdmin, updateDriverById);      
-router.delete('/:id', verifyAdmin, deleteDriver);  
-router.get('/image/:filename', getImage); 
+router.post('/add', uploadToS3, verifyAdmin, createDriver);
+router.get('/', verifyAdmin, getAllDrivers);
+router.get('/:id', verifyAdmin, getDriverById);
+router.put('/:id', uploadToS3, verifyAdmin, updateDriverById);
+router.delete('/:id', verifyAdmin, deleteDriver);
+router.get('/image/:filename', getImage);
 
 // Driver Login
 router.post('/login', verifyAdmin, driverLogin);
@@ -34,6 +36,7 @@ router.post('/assignDriver', assignDriverToBooking);
 
 // Get bookings assigned to a driver
 router.get('/:driverId/bookings', getDriverBookings);
+router.get('/history/:driverId/bookings', getDriverHistoryBookings);
 
 router.put('/bookings/update-status', updateBookingStatus);
 router.get('/GET/filtered-bookings', getFilteredBookings);

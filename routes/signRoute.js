@@ -3,11 +3,9 @@ const express = require('express');
 const router = express.Router();
 const signController = require('../controllers/signController');
 
-router.post('/save', signController.saveSignature);
-router.get('/:userId', signController.getSignature);
-router.get('/', signController.getAllSignatures);
-router.delete('/:userId', signController.deleteSignature);
-router.get('/image/:userId', signController.getSignatureImage);
 
+router.delete('/:id', signController.deleteSignature);
+
+router.get('/get-sign', signController.getAllImages);
 
 module.exports = router;

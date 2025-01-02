@@ -17,7 +17,7 @@ const UserSchema = new Schema(
         image: imageSchema,
         otp: { type: String },
         otpExpiration: { type: Date },
-        isActive: { type: String, enum: ['Active', 'Deactive'], default: 'Deactive' },
+        isActive: { type: String, enum: ['Active', 'Deactive'], default: 'Active' },
         roles: [{
             type: Schema.Types.ObjectId,
             ref: "Role",
