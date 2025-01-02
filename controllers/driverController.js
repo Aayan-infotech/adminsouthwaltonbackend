@@ -325,33 +325,43 @@ const assignDriverToBooking = async (req, res) => {
     }
 
     try {
-
+  
         const booking = await Bookform.findById(bookingId);
         if (!booking) {
             return res.status(404).json({ success: false, status: 404, message: 'Booking not found' });
-        }
-
-        if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
-            booking.paymentId = paymentId;
-        } else {
-            booking.paymentId = null;
         }
 
         const driver = await Driver.findById(driverId);
         if (!driver) {
             return res.status(400).json({ success: false, status: 400, message: 'Driver not found' });
         }
-
+        if (driver.bookings.includes(booking._id)) {
+            return res.status(400).json({
+                success: false,
+                status: 400,
+                message: 'Driver is already assigned to this booking',
+            });
+        }
+        if (paymentId && mongoose.Types.ObjectId.isValid(paymentId)) {
+            booking.paymentId = paymentId;
+        } else {
+            booking.paymentId = null;
+        }
 
         booking.driver = driver._id;
         booking.status = 'PENDING';
         await booking.save();
 
+        // Push the booking ID into the driver's bookings array
         driver.bookings.push(booking._id);
-        driver.status = 'Booked';
         await driver.save();
 
-        return res.status(200).json({ success: true, message: 'Driver assigned successfully', booking, driver });
+        return res.status(200).json({
+            success: true,
+            message: 'Driver assigned successfully',
+            booking,
+            driver,
+        });
     } catch (error) {
         console.error("Error in assigning driver:", error);
         return res.status(500).json({ success: false, status: 500, message: 'Server error', error: error.message });
