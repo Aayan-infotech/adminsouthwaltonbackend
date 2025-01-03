@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Function to send email with PDF attachment
+// Function to send email with PDF atta
 const sendEmailWithPDF = async (to, subject, text, pdfPath) => {
   const mailOptions = {
     from: process.env.EMAIL_USER,
