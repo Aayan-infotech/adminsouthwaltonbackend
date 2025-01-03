@@ -215,5 +215,69 @@ exports.deleteSeasonEntry = async (req, res) => {
     }
 };
 
+exports.getSeasonDetails = async (req, res) => {
+    try {
+        const { pickdate, dropdate } = req.body;
+
+        if (!pickdate || !dropdate) {
+            return res.status(400).json({ error: 'Pickdate and dropdate are required.' });
+        }
+
+        const pickDateObj = new Date(pickdate);
+        const dropDateObj = new Date(dropdate);
+
+        if (pickDateObj > dropDateObj) {
+            return res.status(400).json({ error: 'Pickdate cannot be after dropdate.' });
+        }
+
+        const daysDifference = Math.ceil(
+            (dropDateObj - pickDateObj) / (1000 * 60 * 60 * 24)
+        );
+
+        const seasonData = await Season.findOne(); 
+
+        if (!seasonData) {
+            return res.status(404).json({ error: 'Season data not found.' });
+        }
+
+        let season = determineSeasonType(pickDateObj, dropDateObj, seasonData);
+        if (season === 'Unknown Season') {
+            season = 'secondarySeason';
+        }
+
+        res.status(200).json({
+            day: daysDifference,
+            season
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * Helper function to determine the season type.
+ */
+const determineSeasonType = (pickdate, dropdate, seasonData) => {
+    const seasonRanges = [
+        { type: 'offSeason', ranges: seasonData.offSeason },
+        { type: 'secondarySeason', ranges: seasonData.secondarySeason },
+        { type: 'peakSeason', ranges: seasonData.peakSeason }
+    ];
+
+    for (const season of seasonRanges) {
+        for (const range of season.ranges) {
+            if (
+                pickdate >= new Date(range.dateFrom) &&
+                dropdate <= new Date(range.dateTo)
+            ) {
+                return season.type;
+            }
+        }
+    }
+
+    return 'Unknown Season'; // Default if no season matches
+};
+
 
 
