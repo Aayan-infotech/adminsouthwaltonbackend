@@ -10,7 +10,7 @@ const vehicleSchema = new mongoose.Schema({
   },
   vprice: [
     {
-      season: { type: String, enum: ['offseason', 'secondaryseason', 'peakseason'], required: false },
+      season: { type: String, enum: ['offSeason', 'secondarySeason', 'peakSeason'], required: false },
       day: { type: String, enum: ['oneDay', 'twoDay', 'threeDay', 'fourDay', 'fiveDay', 'sixDay', 'weeklyRental'], required: false },
       price: { type: Number, required: false },
     },
