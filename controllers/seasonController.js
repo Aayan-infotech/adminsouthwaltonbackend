@@ -234,6 +234,31 @@ exports.getSeasonDetails = async (req, res) => {
             (dropDateObj - pickDateObj) / (1000 * 60 * 60 * 24)
         );
 
+        // Determine the day category
+        let dayCategory;
+        switch (true) {
+            case daysDifference === 1:
+                dayCategory = 'oneDay';
+                break;
+            case daysDifference === 2:
+                dayCategory = 'twoDay';
+                break;
+            case daysDifference === 3:
+                dayCategory = 'threeDay';
+                break;
+            case daysDifference === 4:
+                dayCategory = 'fourDay';
+                break;
+            case daysDifference === 5:
+                dayCategory = 'fiveDay';
+                break;
+            case daysDifference === 6:
+                dayCategory = 'sixDay';
+                break;
+            default:
+                dayCategory = 'weeklyRental';
+        }
+
         const seasonData = await Season.findOne(); 
 
         if (!seasonData) {
@@ -246,7 +271,7 @@ exports.getSeasonDetails = async (req, res) => {
         }
 
         res.status(200).json({
-            day: daysDifference,
+            day: dayCategory,
             season
         });
     } catch (error) {
@@ -254,6 +279,7 @@ exports.getSeasonDetails = async (req, res) => {
         res.status(500).json({ error: 'Internal server error.' });
     }
 };
+
 
 /**
  * Helper function to determine the season type.

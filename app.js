@@ -28,6 +28,7 @@ const seasonRoute = require('./routes/seasonRoute');
 
 const signRoutes = require('./routes/signRoute');
 const feedbackRoute = require('./routes/feedbackRoute');
+const rentalAgreementRoute = require('./routes/agreementPdfRoute');
 // Retrieve environment variables
 const PORT = process.env.PORT || 3000;
 const MONGO_URL = process.env.MONGO_URL;
@@ -68,6 +69,7 @@ app.use('/api/customer-damages', customerDamagesRoutes);
 // Static file serving for image uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/request',requestRoute);
+app.use('/api', rentalAgreementRoute);
 // Global error handler middleware
 app.use((obj, req, res, next) => {
     const statusCode = obj.status || 500;
