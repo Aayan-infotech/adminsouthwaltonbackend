@@ -140,7 +140,7 @@ const sendEmailWithPDFandButton = async (to, subject, text, paymentLink) => {
         <p>${text}</p>
         <p>We have attached the Agreement PDF for your review. Please check it out.</p>
         <p>If you're ready to proceed with the payment, click the button below:</p>
-        <a href="http://44.196.64.110:8133/payment" 
+        <a href="http://44.196.64.110:8133/Payment-admin" 
    style="background-color:rgb(70, 198, 207); 
           color: white; 
           padding: 14px 20px; 

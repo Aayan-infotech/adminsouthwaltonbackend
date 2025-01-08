@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
-const CustomerDriverSchema=new Schema ({
+const CustomerDriverSchema = new Schema({
     dphone: { type: String, required: true },
-        demail: { type: String, required: true },
-        dexperience: { type: String, required: true },
-        dname: { type: String, required: true },
-        dpolicy: { type: String, required: true },
-        dlicense: { type: String, required: true }, 
+    demail: { type: String, required: true },
+    dexperience: { type: String, required: true },
+    dname: { type: String, required: true },
+    dpolicy: { type: String, required: true },
+    dlicense: { type: String, required: true },
 })
 const BookformSchema = new Schema({
     bname: { type: String, required: true },
@@ -21,7 +21,7 @@ const BookformSchema = new Schema({
     vehicleId: { type: String, required: false },
     driver: { type: mongoose.Schema.Types.ObjectId, ref: 'Driver', default: null },
     status: { type: String, enum: ['PENDING', 'DELIVERED', 'COMPLETED'], default: 'PENDING' },
-
+    fromAdmin: { type: Boolean, default: false },
     // Adding customerDrivers
     customerDrivers: [CustomerDriverSchema]
 }, { timestamps: true });
