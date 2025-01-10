@@ -34,40 +34,48 @@ const getAllReservations = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+    // Build vehicle filter
     const vehicleFilter = searchQuery
       ? {
-        $or: [
-          { vname: { $regex: searchQuery, $options: 'i' } },
-          { tagNumber: { $regex: searchQuery, $options: 'i' } }
-        ]
-      }
+          $or: [
+            { vname: { $regex: searchQuery, $options: 'i' } },
+            { tagNumber: { $regex: searchQuery, $options: 'i' } },
+          ],
+        }
       : {};
+
+    // Find matching vehicles
     const vehicles = await Vehicle.find(vehicleFilter).select('_id');
+    const vehicleIds = vehicles.map((vehicle) => vehicle._id);
 
-    const vehicleIds = vehicles.map(vehicle => vehicle._id);
+    // Build reservation filter
+    const reservationFilter = searchQuery
+      ? { vehicleId: { $in: vehicleIds } }
+      : {};
 
-    const reservations = await Reserve.find({})
+    // Query reservations
+    const reservations = await Reserve.find(reservationFilter)
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
 
+    // Enrich reservations with vehicle details
     const enrichedReservations = await Promise.all(
       reservations.map(async (reservation) => {
         if (reservation.vehicleId) {
           const vehicleDetails = await Vehicle.findOne({ _id: reservation.vehicleId })
             .select('vname tagNumber passenger image');
-
           return {
             ...reservation.toObject(),
             vehicleDetails,
           };
         }
-
         return reservation.toObject();
       })
     );
 
-    const totalReservations = await Reserve.countDocuments({});
+    // Total count of filtered reservations
+    const totalReservations = await Reserve.countDocuments(reservationFilter);
 
     const totalPages = Math.ceil(totalReservations / limit);
 
@@ -86,6 +94,7 @@ const getAllReservations = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 //get Reservations done from Panel
 

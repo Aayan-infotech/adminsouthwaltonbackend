@@ -127,68 +127,103 @@ const generatePDF = () => {
 
 // Send Email with PDF and Button
 const sendEmailWithPDFandButton = async (to, subject, text, paymentLink) => {
-    // Step 1: Generate the PDF
-    const pdfPath = generatePDF();  // This will save the PDF and return the path
-  
-    // Step 2: Send the email with the generated PDF attached
-    const mailOptions = {
+  // Step 1: Generate the PDF
+  const pdfPath = generatePDF(); // This will save the PDF and return the path
+
+  // Step 2: Send the email with the generated PDF attached
+  const mailOptions = {
       from: process.env.EMAIL_USER,
       to: to,
       subject: subject,
       html: `
-        <p>Dear Customer,</p>
-        <p>${text}</p>
-        <p>We have attached the Agreement PDF for your review. Please check it out.</p>
-        <p>If you're ready to proceed with the payment, click the button below:</p>
-        <a href="http://44.196.64.110:8133/Payment-admin" 
-   style="background-color:rgb(70, 198, 207); 
-          color: white; 
-          padding: 14px 20px; 
-          text-align: center; 
-          text-decoration: none; 
-          display: inline-block; 
-          font-size: 16px; 
-          border-radius: 5px;">
-  Proceed to Payment
-</a>
-        <br><br>
-        <p>Thank you for choosing our service!</p>
-      `,
+      <p>Dear Customer,</p>
+      <p>${text}</p>
+      <p>We have attached the Agreement PDF for your review. Please check it out.</p>
+      <p>If you're ready to proceed with the payment, click the button below:</p>
+      <a href="${paymentLink}" 
+         style="background-color:rgb(70, 198, 207); 
+                color: white; 
+                padding: 14px 20px; 
+                text-align: center; 
+                text-decoration: none; 
+                display: inline-block; 
+                font-size: 16px; 
+                border-radius: 5px;">
+      Proceed to Payment
+      </a>
+      <br><br>
+      <p>Thank you for choosing our service!</p>
+    `,
       attachments: [
-        {
-          filename: 'Agreement.pdf',
-          path: pdfPath, // Attach the generated PDF
-        },
+          {
+              filename: 'Agreement.pdf',
+              path: pdfPath, // Attach the generated PDF
+          },
       ],
-    };
-  
-    try {
+  };
+
+  try {
       await transporter.sendMail(mailOptions);
       console.log('Email sent successfully');
-    } catch (error) {
+  } catch (error) {
       console.error('Error sending email:', error);
-    }
-  };
+  }
+};
 
 // Controller function to handle PDF generation and sending the email
 const handleRentalAgreement = async (req, res) => {
-  const { userEmail, paymentLink } = req.body; // Ensure these values are sent in the request body
+  const { reserveAmount, email, bookingId, reservationId } = req.body; // Ensure these values are sent in the request body
 
   try {
-    // Step 1: Generate PDF
-    const pdfPath = generatePDF();
+      // Construct the dynamic payment link
+      const paymentLink = `http://44.196.64.110:8133/Payment-admin?reserveAmount=${reserveAmount}&email=${encodeURIComponent(email)}&bookingId=${bookingId}&reservationId=${reservationId}`;
 
-    // Step 2: Send email with PDF attachment and payment link
-    await sendEmailWithPDFandButton(userEmail, 'Your Rental Agreement', 'Please review the attached rental agreement.', pdfPath, paymentLink);
+      // Step 1: Generate PDF
+      const pdfPath = generatePDF();
 
-    // Step 3: Send a response to the client
-    res.status(200).json({ message: 'Rental Agreement sent successfully.' });
+      // Step 2: Send email with PDF attachment and payment link
+      await sendEmailWithPDFandButton(
+          email,
+          'Your Rental Agreement',
+          'Please review the attached rental agreement.',
+          paymentLink
+      );
+
+      // Step 3: Send a response to the client
+      res.status(200).json({ message: 'Rental Agreement and Payment Link sent successfully to User.' });
   } catch (error) {
-    console.error('Error processing rental agreement:', error);
-    res.status(500).json({ message: 'Failed to send rental agreement.' });
+      console.error('Error processing rental agreement:', error);
+      res.status(500).json({ message: 'Failed to send rental agreement.' });
+  }
+};
+
+const processPayment = (req, res) => {
+  try {
+    // Fetch the query parameters
+    const { reserveAmount, email, bookingId, reservationId } = req.query;
+
+    // Log the parameters (for testing)
+    console.log('reserveAmount:', reserveAmount);
+    console.log('Email:', email);
+    console.log('Booking ID:', bookingId);
+    console.log('Reservation ID:', reservationId);
+
+    // Perform operations using these parameters
+    res.status(200).json({
+      message: 'Payment information fetched successfully',
+      data: {
+        reserveAmount,
+        email,
+        bookingId,
+        reservationId,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching payment information:', error);
+    res.status(500).json({ message: 'Failed to process payment' });
   }
 };
 
 module.exports = {
-  handleRentalAgreement,
+  handleRentalAgreement,processPayment
 };
