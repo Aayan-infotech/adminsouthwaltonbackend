@@ -4,19 +4,84 @@ const Bookform = require('../models/checkoutModel');
 const Driver = require('../models/driverModel');
 const Payment = require('../models/PaymentModel');
 const Reserve = require('../models/reserveModel');
+const Vehicle = require("../models/vehicleModel");
 
-// Create a new booking form
 const createBookform = async (req, res) => {
   try {
-    const bookform = new Bookform(req.body);
-    const savedForm = await bookform.save();
-    res.status(201).json(savedForm);
+    // Destructure booking details
+    const {
+      bname,
+      bphone,
+      bemail,
+      bsize,
+      baddress,
+      baddressh,
+      paymentId,
+      reservationId,
+      driver,
+      customerDrivers,
+    } = req.body;
+
+    // Handle uploaded files
+    const fileLocations = req.fileLocations || [];
+    if (fileLocations.length !== customerDrivers.length * 2) {
+      return res.status(400).json({
+        message: 'Each customer driver must have both dpolicy and dlicense files uploaded.',
+      });
+    }
+
+    // Add file URLs to customerDrivers
+    const enrichedCustomerDrivers = customerDrivers.map((driver, index) => ({
+      ...driver,
+      dpolicy: fileLocations[index * 2],
+      dlicense: fileLocations[index * 2 + 1],
+    }));
+
+    // Fetch the reservation to get the associated vehicleId
+    const reservation = await Reserve.findById(reservationId);
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found.' });
+    }
+
+    const vehicleId = reservation.vehicleId;
+
+    // Update the vehicle's isAvailable field to false
+    const updatedVehicle = await Vehicle.findByIdAndUpdate(
+      vehicleId,
+      { isAvailable: false },
+      { new: true }
+    );
+    if (!updatedVehicle) {
+      return res.status(404).json({ message: 'Vehicle not found.' });
+    }
+
+    // Create booking
+    const booking = new Bookform({
+      bname,
+      bphone,
+      bemail,
+      bsize,
+      baddress,
+      baddressh,
+      paymentId,
+      reservationId,
+      driver,
+      fromAdmin: true,
+      customerDrivers: enrichedCustomerDrivers,
+    });
+
+    await booking.save();
+    res.status(201).json({
+      message: 'Booking created successfully.',
+      booking
+    });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Error creating booking:', error);
+    res.status(500).json({ message: 'Error creating booking.', error: error.message });
   }
 };
 
-// Get all 
+// Get all of website bookings
 const getAllBookforms = async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10 } = req.query;
@@ -30,17 +95,25 @@ const getAllBookforms = async (req, res) => {
     const allBookforms = await Promise.all(
       payments.map(async (payment) => {
         try {
+          // Fetch Reservation Details
           const reservation = await Reserve.findById(payment.reservation);
           if (!reservation) {
             console.log(`Reservation not found for Payment ID: ${payment._id}`);
             return null;
           }
 
-          const booking = await Bookform.findById(payment.bookingId)
+          // Fetch Booking Details with 'fromAdmin: false'
+          const booking = await Bookform.findOne({
+            _id: payment.bookingId,
+            fromAdmin: false, // Main condition for filtering Bookform data
+          })
             .populate('driver')
             .populate('customerDrivers');
+
           if (!booking) {
-            console.log(`Booking not found for Payment ID: ${payment._id}`);
+            console.log(
+              `Booking not found or does not meet 'fromAdmin: false' for Payment ID: ${payment._id}`
+            );
             return null;
           }
 
@@ -74,22 +147,24 @@ const getAllBookforms = async (req, res) => {
       })
     );
 
+    // Filter out null values
     const successfulBookforms = allBookforms.filter((form) => form !== null);
 
-    // Filter by bemail if search is provided
+    // Filter by 'bemail' if a search query is provided
     const filteredBookforms = search
       ? successfulBookforms.filter((form) =>
           form.bookingDetails.bemail.toLowerCase().includes(search.toLowerCase())
         )
       : successfulBookforms;
 
-    // Pagination
+    // Pagination logic
     const total = filteredBookforms.length;
     const paginatedBookforms = filteredBookforms.slice(
       (page - 1) * limit,
       page * limit
     );
 
+    // Response
     return res.status(200).json({
       total,
       currentPage: Number(page),
@@ -98,6 +173,43 @@ const getAllBookforms = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
+
+
+
+// get all bookings from panel
+
+const getAllBookingsFromPanel = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+
+    const searchFilter = {
+      fromAdmin: true,
+      $or: [
+        { bname: { $regex: search, $options: 'i' } },
+        { bemail: { $regex: search, $options: 'i' } }
+      ]
+    };
+
+    const bookings = await Bookform.find(searchFilter)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 })
+      .populate('reservationId'); 
+
+    const totalBookings = await Bookform.countDocuments(searchFilter);
+
+    res.status(200).json({
+      bookings, 
+      totalBookings,
+      totalPages: Math.ceil(totalBookings / limit),
+      currentPage: parseInt(page)
+    });
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    res.status(500).json({ message: 'Server error while fetching bookings' });
   }
 };
 
@@ -172,6 +284,7 @@ module.exports = {
   getBookformById,
   updateBookform,
   deleteBookform,
+  getAllBookingsFromPanel
 
 };
 

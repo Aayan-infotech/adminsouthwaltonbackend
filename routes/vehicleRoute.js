@@ -10,7 +10,7 @@ router.delete('/:id', vehicleController.deleteVehicle);
 router.get('/by-season-and-day', vehicleController.getVehiclesBySeasonAndDay); 
 router.get('/price/:vehicleID', vehicleController.getVehiclePrice);
 router.get('/:id', vehicleController.getVehicleById);
-
+router.put('/:id/availability', vehicleController.updateAvailability);
 
 
 

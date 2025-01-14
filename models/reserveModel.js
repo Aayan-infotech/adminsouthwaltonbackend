@@ -32,11 +32,18 @@ const reserveSchema = mongoose.Schema(
         },
         booking: {
             type: Boolean,
-            required: false
+            required: false,
+            default: false
         },
         reservation: {
             type: Boolean,
-            required: false
+            required: false,
+            default: false
+        },
+        fromAdmin: {
+            type: Boolean,
+            required: false,
+            default: false
         },
         accepted: {
             type: Boolean,

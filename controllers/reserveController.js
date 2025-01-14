@@ -10,13 +10,20 @@ const Vehicle = require("../models/vehicleModel");
 // Create a new reservation
 const createReservation = async (req, res) => {
   try {
-    const reserveform = new Reserve(req.body);
+    const reservationData = {
+      ...req.body,
+      fromAdmin: true,
+    };
+
+    const reserveform = new Reserve(reservationData);
     const savedForm = await reserveform.save();
+
     res.status(201).json({ id: savedForm._id });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 // Get all reservations
 const getAllReservations = async (req, res) => {
@@ -27,40 +34,48 @@ const getAllReservations = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
+    // Build vehicle filter
     const vehicleFilter = searchQuery
       ? {
-        $or: [
-          { vname: { $regex: searchQuery, $options: 'i' } },
-          { tagNumber: { $regex: searchQuery, $options: 'i' } }
-        ]
-      }
+          $or: [
+            { vname: { $regex: searchQuery, $options: 'i' } },
+            { tagNumber: { $regex: searchQuery, $options: 'i' } },
+          ],
+        }
       : {};
+
+    // Find matching vehicles
     const vehicles = await Vehicle.find(vehicleFilter).select('_id');
+    const vehicleIds = vehicles.map((vehicle) => vehicle._id);
 
-    const vehicleIds = vehicles.map(vehicle => vehicle._id);
+    // Build reservation filter
+    const reservationFilter = searchQuery
+      ? { vehicleId: { $in: vehicleIds } }
+      : {};
 
-    const reservations = await Reserve.find({})
+    // Query reservations
+    const reservations = await Reserve.find(reservationFilter)
       .skip(skip)
       .limit(limit)
       .sort({ createdAt: -1 });
 
+    // Enrich reservations with vehicle details
     const enrichedReservations = await Promise.all(
       reservations.map(async (reservation) => {
         if (reservation.vehicleId) {
           const vehicleDetails = await Vehicle.findOne({ _id: reservation.vehicleId })
             .select('vname tagNumber passenger image');
-
           return {
             ...reservation.toObject(),
             vehicleDetails,
           };
         }
-
         return reservation.toObject();
       })
     );
 
-    const totalReservations = await Reserve.countDocuments({});
+    // Total count of filtered reservations
+    const totalReservations = await Reserve.countDocuments(reservationFilter);
 
     const totalPages = Math.ceil(totalReservations / limit);
 
@@ -81,9 +96,42 @@ const getAllReservations = async (req, res) => {
 };
 
 
+//get Reservations done from Panel
 
+const getAllReservationsFromPanel = async (req, res) => {
+  try {
+    const reservations = await Reserve.find({ 
+      $and: [
+        { reservation: true }, 
+        { booking: false },
+        { fromAdmin: true },
+      ] 
+    });
 
+    const populatedReservations = await Promise.all(
+      reservations.map(async (reservation) => {
+        if (reservation.vehicleId) {
+          const vehicle = await Vehicle.findOne(
+            { _id: reservation.vehicleId },
+            'vname passenger image tagNumber' 
+          );
+          return {
+            ...reservation.toObject(), 
+            vehicleDetails: vehicle || null, 
+          };
+        }
+        return {
+          ...reservation.toObject(),
+          vehicleDetails: null, 
+        };
+      })
+    );
 
+    res.status(200).json(populatedReservations);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 
 //accept
@@ -148,7 +196,7 @@ const updateReservation = async (req, res) => {
     const updatedReservation = await Reserve.findByIdAndUpdate(
       req.params.id,
       req.body,
-      { new: true } // This option returns the updated document
+      { new: true }
     );
     if (!updatedReservation) {
       return res.status(404).json({ message: "Reservation not found" });
@@ -158,6 +206,7 @@ const updateReservation = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 const getReservationListingByDriverID = async (req, res) => {
   try {
@@ -212,6 +261,7 @@ module.exports = {
   getReservationById,
   updateReservation,
   deleteReservation,
-  getReservationListingByDriverID
+  getReservationListingByDriverID,
+  getAllReservationsFromPanel
 };
 
