@@ -4,7 +4,7 @@ const Bookform = require('../models/checkoutModel');
 const Driver = require('../models/driverModel');
 const Payment = require('../models/PaymentModel');
 const Reserve = require('../models/reserveModel');
-
+const Vehicle = require("../models/vehicleModel");
 
 const createBookform = async (req, res) => {
   try {
@@ -18,7 +18,6 @@ const createBookform = async (req, res) => {
       baddressh,
       paymentId,
       reservationId,
-      vehicleId,
       driver,
       customerDrivers,
     } = req.body;
@@ -38,6 +37,24 @@ const createBookform = async (req, res) => {
       dlicense: fileLocations[index * 2 + 1],
     }));
 
+    // Fetch the reservation to get the associated vehicleId
+    const reservation = await Reserve.findById(reservationId);
+    if (!reservation) {
+      return res.status(404).json({ message: 'Reservation not found.' });
+    }
+
+    const vehicleId = reservation.vehicleId;
+
+    // Update the vehicle's isAvailable field to false
+    const updatedVehicle = await Vehicle.findByIdAndUpdate(
+      vehicleId,
+      { isAvailable: false },
+      { new: true }
+    );
+    if (!updatedVehicle) {
+      return res.status(404).json({ message: 'Vehicle not found.' });
+    }
+
     // Create booking
     const booking = new Bookform({
       bname,
@@ -48,15 +65,18 @@ const createBookform = async (req, res) => {
       baddressh,
       paymentId,
       reservationId,
-      vehicleId,
       driver,
-      fromAdmin:true,
+      fromAdmin: true,
       customerDrivers: enrichedCustomerDrivers,
     });
 
     await booking.save();
-    res.status(201).json({ message: 'Booking created successfully.', booking });
+    res.status(201).json({
+      message: 'Booking created successfully.',
+      booking
+    });
   } catch (error) {
+    console.error('Error creating booking:', error);
     res.status(500).json({ message: 'Error creating booking.', error: error.message });
   }
 };

@@ -16,7 +16,12 @@ const vehicleSchema = new mongoose.Schema({
     },
   ],
   image: { type: [String] },
-  tagNumber: { type: String, required: true, unique: true }
+  tagNumber: { type: String, required: true, unique: true },
+  isAvailable: {
+    type: Boolean,
+    required: false,
+    default: true
+  }
 }, {
   timestamps: true
 });
