@@ -176,7 +176,7 @@ const handleRentalAgreement = async (req, res) => {
 
   try {
       // Construct the dynamic payment link
-      const paymentLink = `http://44.196.64.110:8133/Payment-admin?reserveAmount=${reserveAmount}&email=${encodeURIComponent(email)}&bookingId=${bookingId}&reservationId=${reservationId}`;
+      const paymentLink = `http://localhost:5173/Payment-admin?reserveAmount=${reserveAmount}&email=${encodeURIComponent(email)}&bookingId=${bookingId}&reservationId=${reservationId}`;
 
       // Step 1: Generate PDF
       const pdfPath = generatePDF();
