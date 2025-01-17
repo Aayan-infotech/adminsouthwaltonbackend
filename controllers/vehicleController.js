@@ -3,11 +3,11 @@ const mongoose = require('mongoose');
 
 // Create 
 exports.createVehicle = async (req, res) => {
-  const { vname, passenger, vprice, tagNumber, isAvailable } = req.body; 
+  const { vname, passenger, vprice, tagNumber, isAvailable,model } = req.body; 
   const images = req.fileLocations;
 
   try {
-    if (!vname || !passenger || !vprice || !tagNumber) {
+    if (!vname || !passenger || !vprice || !tagNumber || !model) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -33,6 +33,7 @@ exports.createVehicle = async (req, res) => {
       image: images,
       tagNumber,
       isAvailable: isAvailable !== undefined ? isAvailable : true,
+      model
     });
 
     const newVehicle = await vehicleEntry.save();
@@ -46,6 +47,7 @@ exports.createVehicle = async (req, res) => {
       image: newVehicle.image,
       tagNumber: newVehicle.tagNumber,
       isAvailable: newVehicle.isAvailable,
+      model: newVehicle.model,
       createdAt: newVehicle.createdAt,
       updatedAt: newVehicle.updatedAt,
     });
@@ -60,8 +62,8 @@ exports.createVehicle = async (req, res) => {
 
 // Update 
 exports.updateVehicle = async (req, res) => {
-  const { vname, passenger, vprice, tagNumber, isAvailable } = req.body; 
-  const updateData = { vname, passenger, tagNumber }; 
+  const { vname, passenger, vprice, tagNumber, isAvailable,model } = req.body; 
+  const updateData = { vname, passenger, tagNumber,model }; 
 
   try {
     const existingVehicle = await Vehicle.findById(req.params.id);
@@ -186,6 +188,7 @@ exports.getVehiclesBySeasonAndDay = async (req, res) => {
         price: priceEntry ? priceEntry.price : null,
         image: vehicle.image,
         tagNumber: vehicle.tagNumber,
+        model: vehicle.model,
         isAvailable: vehicle.isAvailable, // Include isAvailable in the response
       };
     });
@@ -229,6 +232,7 @@ exports.getVehiclePrice = async (req, res) => {
         vehicleID: vehicle.vehicleID,
         vname: vehicle.vname,
         tagNumber: vehicle.tagNumber,
+        model: vehicle.model,
         season: season,
         day: day,
         price: priceEntry.price,
@@ -249,7 +253,7 @@ exports.getVehiclePrice = async (req, res) => {
 exports.getVehicleById = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const vehicle = await Vehicle.findById(id).select("vname passenger tagNumber");
+    const vehicle = await Vehicle.findById(id).select("vname passenger tagNumber model");
 
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });

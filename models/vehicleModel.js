@@ -21,6 +21,11 @@ const vehicleSchema = new mongoose.Schema({
     type: Boolean,
     required: false,
     default: true
+  },
+  model: {
+    type: String,
+    enum: ['gas', 'electric'],
+    required: true,
   }
 }, {
   timestamps: true

@@ -31,6 +31,7 @@ const getAllReservations = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const searchQuery = req.query.search || '';
+    const fromAdmin = req.query.fromAdmin; // Get the fromAdmin filter from query params
 
     const skip = (page - 1) * limit;
 
@@ -48,10 +49,11 @@ const getAllReservations = async (req, res) => {
     const vehicles = await Vehicle.find(vehicleFilter).select('_id');
     const vehicleIds = vehicles.map((vehicle) => vehicle._id);
 
-    // Build reservation filter
-    const reservationFilter = searchQuery
-      ? { vehicleId: { $in: vehicleIds } }
-      : {};
+    // Build reservation filter with the fromAdmin key
+    const reservationFilter = {
+      vehicleId: { $in: vehicleIds },
+      ...(fromAdmin ? { fromAdmin: fromAdmin === 'true' } : {}), 
+    };
 
     // Query reservations
     const reservations = await Reserve.find(reservationFilter)
@@ -64,7 +66,7 @@ const getAllReservations = async (req, res) => {
       reservations.map(async (reservation) => {
         if (reservation.vehicleId) {
           const vehicleDetails = await Vehicle.findOne({ _id: reservation.vehicleId })
-            .select('vname tagNumber passenger image');
+            .select('vname tagNumber passenger image model');
           return {
             ...reservation.toObject(),
             vehicleDetails,
@@ -96,6 +98,7 @@ const getAllReservations = async (req, res) => {
 };
 
 
+
 //get Reservations done from Panel
 
 const getAllReservationsFromPanel = async (req, res) => {
@@ -113,7 +116,7 @@ const getAllReservationsFromPanel = async (req, res) => {
         if (reservation.vehicleId) {
           const vehicle = await Vehicle.findOne(
             { _id: reservation.vehicleId },
-            'vname passenger image tagNumber' 
+            'vname passenger image tagNumber model' 
           );
           return {
             ...reservation.toObject(), 

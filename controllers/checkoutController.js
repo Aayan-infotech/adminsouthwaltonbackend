@@ -86,7 +86,8 @@ const getAllBookforms = async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10 } = req.query;
 
-    const payments = await Payment.find().sort({ createdAt: -1 });
+    // Fetch payments where 'fromAdmin' is false
+    const payments = await Payment.find({ fromAdmin: false }).sort({ createdAt: -1 });
 
     if (!payments || payments.length === 0) {
       return res.status(404).json({ message: 'No payments found' });
@@ -102,17 +103,16 @@ const getAllBookforms = async (req, res) => {
             return null;
           }
 
-          // Fetch Booking Details with 'fromAdmin: false'
+          // Fetch Booking Details
           const booking = await Bookform.findOne({
             _id: payment.bookingId,
-            fromAdmin: false, // Main condition for filtering Bookform data
           })
             .populate('driver')
             .populate('customerDrivers');
 
           if (!booking) {
             console.log(
-              `Booking not found or does not meet 'fromAdmin: false' for Payment ID: ${payment._id}`
+              `Booking not found for Payment ID: ${payment._id}`
             );
             return null;
           }
@@ -175,6 +175,7 @@ const getAllBookforms = async (req, res) => {
     return res.status(500).json({ message: 'Server Error', error: error.message });
   }
 };
+
 
 const getAllBookingForCalendar = async (req, res) => {
   try {
