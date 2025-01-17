@@ -176,6 +176,84 @@ const getAllBookforms = async (req, res) => {
   }
 };
 
+const getAllBookingForCalendar = async (req, res) => {
+  try {
+    const payments = await Payment.find().sort({ createdAt: -1 });
+
+    if (!payments || payments.length === 0) {
+      return res.status(404).json({ message: 'No payments found' });
+    }
+
+    const allBookforms = await Promise.all(
+      payments.map(async (payment) => {
+        try {
+          // Fetch Reservation Details
+          const reservation = await Reserve.findById(payment.reservation);
+          if (!reservation) {
+            console.log(`Reservation not found for Payment ID: ${payment._id}`);
+            return null;
+          }
+
+          // Fetch Vehicle Details
+          let vehicle = null;
+          if (reservation.vehicleId) {
+            vehicle = await Vehicle.findById(reservation.vehicleId);
+          }
+
+          // Fetch Booking Details with 'fromAdmin: false'
+          const booking = await Bookform.findOne({
+            _id: payment.bookingId
+          })
+            .populate('driver')
+            .populate('customerDrivers');
+
+          if (!booking) {
+            console.log(
+              `Booking not found or does not meet 'fromAdmin: false' for Payment ID: ${payment._id}`
+            );
+            return null;
+          }
+
+          return {
+            paymentId: payment._id,
+            email: payment.email,
+            amount: payment.amount,
+            reservationDetails: {
+              pickup: reservation.pickup,
+              drop: reservation.drop,
+              pickdate: reservation.pickdate,
+              dropdate: reservation.dropdate,
+              vehicle: vehicle ? { id: vehicle._id, vname: vehicle.vname,passenger: vehicle.passenger,tagNumber: vehicle.tagNumber } : null,
+            },
+            bookingDetails: {
+              bookingId: booking._id,
+              bname: booking.bname,
+              bphone: booking.bphone,
+              bemail: booking.bemail,
+              baddress: booking.baddress,
+              baddressh: booking.baddressh,
+              driver: booking.driver,
+              customerDrivers: booking.customerDrivers,
+            },
+          };
+        } catch (err) {
+          console.log(`Error fetching data for Payment ID: ${payment._id} - ${err.message}`);
+          return null;
+        }
+      })
+    );
+
+    // Filter out null values
+    const successfulBookforms = allBookforms.filter((form) => form !== null);
+
+    // Response
+    return res.status(200).json({
+      data: successfulBookforms,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: 'Server Error', error: error.message });
+  }
+};
 
 
 // get all bookings from panel
@@ -284,8 +362,8 @@ module.exports = {
   getBookformById,
   updateBookform,
   deleteBookform,
-  getAllBookingsFromPanel
-
+  getAllBookingsFromPanel,
+  getAllBookingForCalendar
 };
 
 
