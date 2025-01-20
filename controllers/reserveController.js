@@ -31,8 +31,7 @@ const getAllReservations = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const searchQuery = req.query.search || '';
-    const fromAdmin = req.query.fromAdmin; // Get the fromAdmin filter from query params
-
+  
     const skip = (page - 1) * limit;
 
     // Build vehicle filter
@@ -50,11 +49,10 @@ const getAllReservations = async (req, res) => {
     const vehicleIds = vehicles.map((vehicle) => vehicle._id);
 
     // Build reservation filter with the fromAdmin key
-    const reservationFilter = {
-      vehicleId: { $in: vehicleIds },
-      ...(fromAdmin ? { fromAdmin: fromAdmin === 'true' } : {}), 
-    };
-
+    const reservationFilter = searchQuery
+    ? { vehicleId: { $in: vehicleIds } }
+    : {};
+    
     // Query reservations
     const reservations = await Reserve.find(reservationFilter)
       .skip(skip)
